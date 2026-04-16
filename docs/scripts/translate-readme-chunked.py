@@ -52,16 +52,15 @@ def translate_chunk(content: str, language: str, lang_code: str) -> str:
     if lang_code == 'he':
         rtl_note = "\n- For Hebrew: Wrap entire document in <div dir=\"rtl\">...</div>"
     
-    prompt = f"""Translate to {language}. Output ONLY translated markdown, no explanations.
+    prompt = f"""Translate the following markdown content to {language}. Output ONLY the translated markdown, no explanations.
 
 CRITICAL RULES:
-- Keep code blocks, commands, file names, URLs, AWS services unchanged
-- Keep technical terms: CLI, CI/CD, DevOps, workflow, pipeline, bundle, manifest
-- AVOID LANGUAGE MIXING: If a sentence has multiple English technical terms, keep ENTIRE sentence in English and add translation in parentheses
-- Example: "Deploy Airflow DAGs and ML workflows" → Keep in English, add translation in parentheses after
-- Only translate purely descriptive sentences with minimal technical terms
-- Never switch languages mid-sentence
-- Preserve ALL markdown formatting exactly{rtl_note}
+- Translate all natural language text (headings, descriptions, explanations) into {language}
+- Keep the following UNCHANGED (do not translate): code blocks, inline code, commands, file names, file paths, URLs, AWS service names, CLI command names, YAML keys
+- Keep these technical terms in English but translate the surrounding sentence: CLI, CI/CD, DevOps, API, SDK, DAG, ML, GenAI, IAM, IdC, VPC
+- Brand names stay in English: AWS, Amazon, SageMaker, Bedrock, QuickSight, Glue, Airflow, GitHub, Python
+- Translate descriptive text naturally — do NOT keep sentences in English just because they contain technical terms
+- Preserve ALL markdown formatting exactly (headers, bold, links, badges, lists, tables){rtl_note}
 
 {content}"""
     

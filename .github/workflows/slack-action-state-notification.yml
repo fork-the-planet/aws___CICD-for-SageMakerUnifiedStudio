@@ -9,7 +9,6 @@ on:
       - "Deploy ML Deployment"
       - "Deploy ML Training"
       - "Translate Documentation"
-      - "Test Destroy Command (Dashboard Glue QuickSight)"
       - "Deploy Catalog Import Export"
     types: [completed]
 
