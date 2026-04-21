@@ -141,7 +141,6 @@ def main():
         # Wrap Hebrew in RTL div and fix code blocks
         if lang_code == 'he':
             # Wrap code blocks in LTR divs
-            import re
             pattern = r'(```[\s\S]*?```)'
             full_translation = re.sub(pattern, r'<div dir="ltr">\n\n\1\n\n</div>', full_translation)
             full_translation = f'<div dir="rtl">\n\n{badge_bar}{back_link}\n\n{full_translation}\n\n</div>'

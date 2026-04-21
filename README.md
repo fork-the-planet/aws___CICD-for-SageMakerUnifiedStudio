@@ -1,12 +1,12 @@
 # SMUS CI/CD Pipeline CLI
 
-[![en](https://img.shields.io/badge/lang-en-brightgreen.svg?style=for-the-badge)](README.md)
-[![pt](https://img.shields.io/badge/lang-pt-gray.svg)](docs/langs/pt/README.md)
-[![fr](https://img.shields.io/badge/lang-fr-gray.svg)](docs/langs/fr/README.md)
-[![it](https://img.shields.io/badge/lang-it-gray.svg)](docs/langs/it/README.md)
-[![ja](https://img.shields.io/badge/lang-ja-gray.svg)](docs/langs/ja/README.md)
-[![zh](https://img.shields.io/badge/lang-zh-gray.svg)](docs/langs/zh/README.md)
-[![he](https://img.shields.io/badge/lang-he-gray.svg)](docs/langs/he/README.md)
+[![en](https://img.shields.io/badge/lang-en-brightgreen.svg?style=for-the-badge)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/README.md)
+[![pt](https://img.shields.io/badge/lang-pt-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/pt/README.md)
+[![fr](https://img.shields.io/badge/lang-fr-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/fr/README.md)
+[![it](https://img.shields.io/badge/lang-it-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/it/README.md)
+[![ja](https://img.shields.io/badge/lang-ja-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/ja/README.md)
+[![zh](https://img.shields.io/badge/lang-zh-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/zh/README.md)
+[![he](https://img.shields.io/badge/lang-he-gray.svg)](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/langs/he/README.md)
 
 > **[IAM + IdC Domains]** This CLI supports both IAM-based and IAM Identity Center (IdC)-based SMUS domains. For IdC domains, additional setup (VPC networking, Lake Formation permissions, inline IAM policies) may be required — see the setup scripts in each example directory.
 
@@ -58,7 +58,7 @@ aws-smus-cicd-cli test --manifest manifest.yaml --targets test
 aws-smus-cicd-cli destroy --manifest manifest.yaml --targets test --force
 ```
 
-**See it in action:** [Live GitHub Actions Example](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/17631303500)
+**See it in action:** [Live GitHub Actions Example](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/24535194879)
 
 ---
 
@@ -69,7 +69,7 @@ aws-smus-cicd-cli destroy --manifest manifest.yaml --targets test --force
 **You define:** Application manifest (`manifest.yaml`) with your code, workflows, and configurations  
 **You don't need to know:** CI/CD pipelines, GitHub Actions, deployment automation  
 
-→ **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application in 10 minutes  
+→ **[Quick Start Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/getting-started/quickstart.md)** - Deploy your first application in 10 minutes  
 
 **Includes examples for:**
 - Data Engineering (Glue, Notebooks, Athena)
@@ -81,8 +81,8 @@ aws-smus-cicd-cli destroy --manifest manifest.yaml --targets test --force
 **You define:** Workflow templates that enforce testing, approvals, and promotion policies  
 **You don't need to know:** Application-specific details, AWS services used, DataZone APIs, SMUS project structures, or business logic  
 
-→ **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Configure infrastructure and pipelines in 15 minutes  
-→ **[GitHub Workflow Templates](git-templates/)** - Generic, reusable workflow templates for automated deployment
+→ **[Admin Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/getting-started/admin-quickstart.md)** - Configure infrastructure and pipelines in 15 minutes  
+→ **[GitHub Workflow Templates](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/tree/main/git-templates/)** - Generic, reusable workflow templates for automated deployment
 
 **The CLI is your abstraction layer:** You just call `aws-smus-cicd-cli deploy` - the CLI handles all AWS service interactions (DataZone, Glue, Athena, SageMaker, MWAA, S3, IAM, etc.). Your workflows stay simple and generic.
 
@@ -138,7 +138,7 @@ Deploy workflows using these AWS services through Airflow YAML syntax:
 ### 📊 Additional Services
 S3 • Lambda • Step Functions • DynamoDB • RDS • SNS/SQS • Batch
 
-**See complete list:** [Airflow AWS Operators Reference](docs/airflow-aws-operators.md)
+**See complete list:** [Airflow AWS Operators Reference](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md)
 
 ---
 
@@ -465,7 +465,7 @@ stages:
 
 </details>
 
-**[View Full Example →](docs/examples-guide.md#-analytics---quicksight-dashboard)**
+**[View Full Example →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-analytics---quicksight-dashboard)**
 
 ---
 
@@ -618,7 +618,7 @@ notebooks_workflow:
 
 </details>
 
-**[View Full Example →](docs/examples-guide.md#-data-engineering---notebooks)**
+**[View Full Example →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-data-engineering---notebooks)**
 
 ---
 
@@ -743,7 +743,7 @@ ml_training_workflow:
 
 </details>
 
-**[View Full Example →](docs/examples-guide.md#-machine-learning---training)**
+**[View Full Example →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-machine-learning---training)**
 
 ---
 
@@ -866,7 +866,7 @@ ml_deployment_workflow:
 
 </details>
 
-**[View Full Example →](docs/examples-guide.md#-machine-learning---deployment)**
+**[View Full Example →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-machine-learning---deployment)**
 
 ---
 
@@ -979,11 +979,11 @@ genai_dev_workflow:
 
 </details>
 
-**[View Full Example →](docs/examples-guide.md#-generative-ai)**
+**[View Full Example →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-generative-ai)**
 
 ---
 
-**[See All Examples with Detailed Walkthroughs →](docs/examples-guide.md)**
+**[See All Examples with Detailed Walkthroughs →](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md)**
 
 ---
 
@@ -993,8 +993,8 @@ The examples above support both IAM-based and IAM Identity Center (IdC)-based do
 
 | Example | Setup Script | What It Does |
 |---------|-------------|--------------|
-| Data Notebooks | [`idc_domain_project_setup.py`](examples/analytic-workflow/data-notebooks/idc_domain_project_setup.py) | VPC networking (S3 gateway endpoint, NAT gateway), Lake Formation permissions on `sagemaker_sample_db` |
-| ML Training | [`idc_domain_project_setup.py`](examples/analytic-workflow/ml/training/idc_domain_project_setup.py) | MLflow tracking server access, CloudWatch Logs permissions |
+| Data Notebooks | [`idc_domain_project_setup.py`](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/examples/analytic-workflow/data-notebooks/idc_domain_project_setup.py) | VPC networking (S3 gateway endpoint, NAT gateway), Lake Formation permissions on `sagemaker_sample_db` |
+| ML Training | [`idc_domain_project_setup.py`](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/examples/analytic-workflow/ml/training/idc_domain_project_setup.py) | MLflow tracking server access, CloudWatch Logs permissions |
 | ML Deployment | Uses the same project role as ML Training | No additional setup beyond ML Training |
 
 ```bash
@@ -1022,22 +1022,22 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 ### Core Infrastructure
 | Feature | Status | Notes |
 |---------|--------|-------|
-| YAML configuration | ✅ | [Manifest Guide](docs/manifest.md) |
-| Infrastructure as Code | ✅ | [Deploy Command](docs/cli-commands.md#deploy) |
-| Multi-environment deployment | ✅ | [Stages](docs/manifest-schema.md#stages) |
-| CLI tool | ✅ | [CLI Commands](docs/cli-commands.md) |
-| Version control integration | ✅ | [GitHub Actions](docs/github-actions-integration.md) |
+| YAML configuration | ✅ | [Manifest Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest.md) |
+| Infrastructure as Code | ✅ | [Deploy Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#deploy) |
+| Multi-environment deployment | ✅ | [Stages](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#stages) |
+| CLI tool | ✅ | [CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md) |
+| Version control integration | ✅ | [GitHub Actions](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-actions-integration.md) |
 
 ### Deployment & Bundling
 **Automated Deployment** - Define your application content, workflows, and deployment targets in YAML. Bundle-based (artifact) or direct (git-based) deployment modes. Deploy to test and prod with a single command. Dynamic configuration using `${VAR}` substitution. Track deployments in S3 or git for deployment history.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Artifact bundling | ✅ | [Bundle Command](docs/cli-commands.md#bundle) |
-| Bundle-based deployment | ✅ | [Deploy Command](docs/cli-commands.md#deploy) |
-| Direct deployment | ✅ | [Deploy Command](docs/cli-commands.md#deploy) |
-| Deployment validation | ✅ | [Describe Command](docs/cli-commands.md#describe) |
-| Dry-run validation | ✅ | [Deploy --dry-run](docs/cli-commands.md#dry-run-mode) |
+| Artifact bundling | ✅ | [Bundle Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#bundle) |
+| Bundle-based deployment | ✅ | [Deploy Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#deploy) |
+| Direct deployment | ✅ | [Deploy Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#deploy) |
+| Deployment validation | ✅ | [Describe Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#describe) |
+| Dry-run validation | ✅ | [Deploy --dry-run](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#dry-run-mode) |
 | Incremental deployment | 🔄 | Upload only changed files |
 | Rollback support | 🔮 | Automated rollback |
 | Blue-green deployment | 🔮 | Zero-downtime deployments |
@@ -1046,9 +1046,9 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Project templates | 🔄 | `aws-smus-cicd-cli init` with templates |
-| Manifest initialization | ✅ | [Create Command](docs/cli-commands.md#create) |
+| Manifest initialization | ✅ | [Create Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#create) |
 | Interactive setup | 🔄 | Guided configuration prompts |
-| Local development | ✅ | [CLI Commands](docs/cli-commands.md) |
+| Local development | ✅ | [CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md) |
 | VS Code extension | 🔮 | IntelliSense and validation |
 
 ### Configuration
@@ -1056,99 +1056,99 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Variable substitution | ✅ | [Substitutions Guide](docs/substitutions-and-variables.md) |
-| Environment-specific config | ✅ | [Stages](docs/manifest-schema.md#stages) |
+| Variable substitution | ✅ | [Substitutions Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/substitutions-and-variables.md) |
+| Environment-specific config | ✅ | [Stages](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#stages) |
 | Secrets management | 🔮 | AWS Secrets Manager integration |
-| Config validation | ✅ | [Manifest Schema](docs/manifest-schema.md) |
-| Connection management | ✅ | [Connections Guide](docs/connections.md) |
+| Config validation | ✅ | [Manifest Schema](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md) |
+| Connection management | ✅ | [Connections Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/connections.md) |
 
 ### Resources & Workloads
 **Deploy Any AWS Service** - Airflow DAGs, Jupyter notebooks, Glue ETL jobs, Athena queries, SageMaker training and endpoints, QuickSight dashboards, Bedrock agents, Lambda functions, EMR jobs, and Redshift queries.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Airflow DAGs | ✅ | [Workflows](docs/manifest-schema.md#workflows) |
-| Jupyter notebooks | ✅ | [SageMakerNotebookOperator](docs/airflow-aws-operators.md#amazon-sagemaker) |
-| Glue ETL jobs | ✅ | [GlueJobOperator](docs/airflow-aws-operators.md#aws-glue) |
-| Athena queries | ✅ | [AthenaOperator](docs/airflow-aws-operators.md#amazon-athena) |
-| SageMaker training | ✅ | [SageMakerTrainingOperator](docs/airflow-aws-operators.md#amazon-sagemaker) |
-| SageMaker endpoints | ✅ | [SageMakerEndpointOperator](docs/airflow-aws-operators.md#amazon-sagemaker) |
-| QuickSight dashboards | ✅ | [QuickSight Deployment](docs/quicksight-deployment.md) |
-| Bedrock agents | ✅ | [BedrockInvokeModelOperator](docs/airflow-aws-operators.md#amazon-bedrock) |
-| Lambda functions | 🔄 | [LambdaInvokeFunctionOperator](docs/airflow-aws-operators.md#aws-lambda) |
-| EMR jobs | ✅ | [EmrAddStepsOperator](docs/airflow-aws-operators.md#amazon-emr) |
-| Redshift queries | ✅ | [RedshiftDataOperator](docs/airflow-aws-operators.md#amazon-redshift) |
+| Airflow DAGs | ✅ | [Workflows](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#workflows) |
+| Jupyter notebooks | ✅ | [SageMakerNotebookOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-sagemaker) |
+| Glue ETL jobs | ✅ | [GlueJobOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#aws-glue) |
+| Athena queries | ✅ | [AthenaOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-athena) |
+| SageMaker training | ✅ | [SageMakerTrainingOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-sagemaker) |
+| SageMaker endpoints | ✅ | [SageMakerEndpointOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-sagemaker) |
+| QuickSight dashboards | ✅ | [QuickSight Deployment](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/quicksight-deployment.md) |
+| Bedrock agents | ✅ | [BedrockInvokeModelOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-bedrock) |
+| Lambda functions | 🔄 | [LambdaInvokeFunctionOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#aws-lambda) |
+| EMR jobs | ✅ | [EmrAddStepsOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-emr) |
+| Redshift queries | ✅ | [RedshiftDataOperator](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-redshift) |
 
 ### Bootstrap Actions
 **Automated Workflow Execution & Event-Driven Workflows** - Trigger workflows automatically during deployment with `workflow.run` (use `trailLogs: true` to stream logs and wait for completion). Fetch workflow logs for validation and debugging with `workflow.logs`. Automatically refresh QuickSight dashboards after ETL deployment with `quicksight.refresh_dataset`. Emit custom events for downstream automation and CI/CD orchestration with `eventbridge.put_events`. Provision MLflow and other DataZone connections during deployment. Actions run in order during `aws-smus-cicd-cli deploy` for reliable initialization and validation.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Workflow execution | ✅ | [workflow.run](docs/bootstrap-actions.md#workflowrun---trigger-workflow-execution) |
-| Log retrieval | ✅ | [workflow.logs](docs/bootstrap-actions.md#workflowlogs---fetch-workflow-logs) |
-| QuickSight refresh | ✅ | [quicksight.refresh_dataset](docs/bootstrap-actions.md#quicksightrefresh_dataset---trigger-dataset-ingestion) |
-| EventBridge events | ✅ | [eventbridge.put_events](docs/bootstrap-actions.md#customput_events---emit-custom-events) |
-| DataZone connections | ✅ | [datazone.create_connection](docs/bootstrap-actions.md) |
-| Sequential execution | ✅ | [Execution Flow](docs/bootstrap-actions.md#execution-flow) |
+| Workflow execution | ✅ | [workflow.run](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md#workflowrun---trigger-workflow-execution) |
+| Log retrieval | ✅ | [workflow.logs](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md#workflowlogs---fetch-workflow-logs) |
+| QuickSight refresh | ✅ | [quicksight.refresh_dataset](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md#quicksightrefresh_dataset---trigger-dataset-ingestion) |
+| EventBridge events | ✅ | [eventbridge.put_events](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md#customput_events---emit-custom-events) |
+| DataZone connections | ✅ | [datazone.create_connection](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md) |
+| Sequential execution | ✅ | [Execution Flow](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md#execution-flow) |
 
 ### CI/CD Integration
 **Pre-built CI/CD Pipeline Workflows** - GitHub Actions, GitLab CI, Azure DevOps, and Jenkins support for automated deployment. Flexible configuration for any CI/CD platform. Trigger deployments from external events with webhook support.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| GitHub Actions | ✅ | [GitHub Actions Guide](docs/github-actions-integration.md) |
-| GitLab CI | ✅ | [CLI Commands](docs/cli-commands.md) |
-| Azure DevOps | ✅ | [CLI Commands](docs/cli-commands.md) |
-| Jenkins | ✅ | [CLI Commands](docs/cli-commands.md) |
-| Service principals | ✅ | [GitHub Actions Guide](docs/github-actions-integration.md) |
-| OIDC federation | ✅ | [GitHub Actions Guide](docs/github-actions-integration.md) |
+| GitHub Actions | ✅ | [GitHub Actions Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-actions-integration.md) |
+| GitLab CI | ✅ | [CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md) |
+| Azure DevOps | ✅ | [CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md) |
+| Jenkins | ✅ | [CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md) |
+| Service principals | ✅ | [GitHub Actions Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-actions-integration.md) |
+| OIDC federation | ✅ | [GitHub Actions Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-actions-integration.md) |
 
 ### Testing & Validation
 **Automated Tests & Quality Gates** - Run validation tests before promoting to production. Block deployments if tests fail. Track execution status and logs. Verify deployment correctness with health checks.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Unit testing | ✅ | [Test Command](docs/cli-commands.md#test) |
-| Integration testing | ✅ | [Test Command](docs/cli-commands.md#test) |
-| Automated tests | ✅ | [Test Command](docs/cli-commands.md#test) |
-| Quality gates | ✅ | [Test Command](docs/cli-commands.md#test) |
-| Workflow monitoring | ✅ | [Monitor Command](docs/cli-commands.md#monitor) |
+| Unit testing | ✅ | [Test Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#test) |
+| Integration testing | ✅ | [Test Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#test) |
+| Automated tests | ✅ | [Test Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#test) |
+| Quality gates | ✅ | [Test Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#test) |
+| Workflow monitoring | ✅ | [Monitor Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#monitor) |
 
 ### Monitoring & Observability
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Deployment monitoring | ✅ | [Deploy Command](docs/cli-commands.md#deploy) |
-| Workflow monitoring | ✅ | [Monitor Command](docs/cli-commands.md#monitor) |
-| Custom alerts | ✅ | [Deployment Metrics](docs/pipeline-deployment-metrics.md) |
-| Metrics collection | ✅ | [Deployment Metrics](docs/pipeline-deployment-metrics.md) |
-| Deployment history | ✅ | [Bundle Command](docs/cli-commands.md#bundle) |
+| Deployment monitoring | ✅ | [Deploy Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#deploy) |
+| Workflow monitoring | ✅ | [Monitor Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#monitor) |
+| Custom alerts | ✅ | [Deployment Metrics](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pipeline-deployment-metrics.md) |
+| Metrics collection | ✅ | [Deployment Metrics](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pipeline-deployment-metrics.md) |
+| Deployment history | ✅ | [Bundle Command](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md#bundle) |
 
 ### AWS Service Integration
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Amazon MWAA | ✅ | [Workflows](docs/manifest-schema.md#workflows) |
-| MWAA Serverless | ✅ | [Workflows](docs/manifest-schema.md#workflows) |
-| AWS Glue | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#aws-glue) |
-| Amazon Athena | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#amazon-athena) |
-| SageMaker | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#amazon-sagemaker) |
-| Amazon Bedrock | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#amazon-bedrock) |
-| Amazon QuickSight | ✅ | [QuickSight Deployment](docs/quicksight-deployment.md) |
-| DataZone | ✅ | [Manifest Schema](docs/manifest-schema.md) |
-| EventBridge | ✅ | [Deployment Metrics](docs/pipeline-deployment-metrics.md) |
-| Lake Formation | ✅ | [Connections Guide](docs/connections.md) |
-| Amazon S3 | ✅ | [Storage](docs/manifest-schema.md#storage) |
-| AWS Lambda | 🔄 | [Airflow Operators](docs/airflow-aws-operators.md#aws-lambda) |
-| Amazon EMR | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#amazon-emr) |
-| Amazon Redshift | ✅ | [Airflow Operators](docs/airflow-aws-operators.md#amazon-redshift) |
+| Amazon MWAA | ✅ | [Workflows](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#workflows) |
+| MWAA Serverless | ✅ | [Workflows](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#workflows) |
+| AWS Glue | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#aws-glue) |
+| Amazon Athena | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-athena) |
+| SageMaker | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-sagemaker) |
+| Amazon Bedrock | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-bedrock) |
+| Amazon QuickSight | ✅ | [QuickSight Deployment](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/quicksight-deployment.md) |
+| DataZone | ✅ | [Manifest Schema](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md) |
+| EventBridge | ✅ | [Deployment Metrics](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pipeline-deployment-metrics.md) |
+| Lake Formation | ✅ | [Connections Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/connections.md) |
+| Amazon S3 | ✅ | [Storage](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#storage) |
+| AWS Lambda | 🔄 | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#aws-lambda) |
+| Amazon EMR | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-emr) |
+| Amazon Redshift | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md#amazon-redshift) |
 
 ### Advanced Features
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Multi-region deployment | ✅ | [Stages](docs/manifest-schema.md#stages) |
-| Cross-project deployment | ✅ | [Stages](docs/manifest-schema.md#stages) |
-| Dependency management | ✅ | [Airflow Operators](docs/airflow-aws-operators.md) |
-| Catalog subscriptions | ✅ | [Manifest Schema](docs/manifest-schema.md) |
-| Multi-service orchestration | ✅ | [Airflow Operators](docs/airflow-aws-operators.md) |
+| Multi-region deployment | ✅ | [Stages](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#stages) |
+| Cross-project deployment | ✅ | [Stages](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md#stages) |
+| Dependency management | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md) |
+| Catalog subscriptions | ✅ | [Manifest Schema](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md) |
+| Multi-service orchestration | ✅ | [Airflow Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md) |
 | Drift detection | 🔮 | Detect configuration drift |
 | State management | 🔄 | Comprehensive state tracking |
 
@@ -1159,51 +1159,51 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 ## Documentation
 
 ### Getting Started
-- **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application (10 min)
-- **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Set up infrastructure (15 min)
+- **[Quick Start Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/getting-started/quickstart.md)** - Deploy your first application (10 min)
+- **[Admin Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/getting-started/admin-quickstart.md)** - Set up infrastructure (15 min)
 
 ### Guides
-- **[Application Manifest](docs/manifest.md)** - Complete YAML configuration reference
-- **[CLI Commands](docs/cli-commands.md)** - All available commands and options
-- **[Rollback Guide](docs/rollback-guide.md)** - Recover from bad deployments and automate rollback
-- **[Bootstrap Actions](docs/bootstrap-actions.md)** - Automated deployment actions and event-driven workflows
-- **[Substitutions & Variables](docs/substitutions-and-variables.md)** - Dynamic configuration
-- **[Connections Guide](docs/connections.md)** - Configure AWS service integrations
-- **[GitHub Actions Integration](docs/github-actions-integration.md)** - CI/CD automation setup
-- **[GitHub Workflow Application Guide](docs/github-workflow-application-guide.md)** - Application admin guide for direct branch deployment
-- **[GitHub Workflow DevOps Guide](docs/github-workflow-devops-guide.md)** - DevOps guide for direct branch deployment
-- **[Deployment Metrics](docs/pipeline-deployment-metrics.md)** - Monitoring with EventBridge
-- **[Catalog Import/Export Guide](docs/catalog-import-export-guide.md)** - Promote DataZone catalog resources across environments
-- **[Catalog Import/Export Quick Reference](docs/catalog-import-export-quick-reference.md)** - Quick reference for catalog deployment
-- **[MCP Configuration](docs/mcp-configuration.md)** - MCP server configuration guide
-- **[Q CLI Conversation Examples](docs/q-cli-conversation-examples.md)** - Example conversations with Q CLI
+- **[Application Manifest](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest.md)** - Complete YAML configuration reference
+- **[CLI Commands](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/cli-commands.md)** - All available commands and options
+- **[Rollback Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/rollback-guide.md)** - Recover from bad deployments and automate rollback
+- **[Bootstrap Actions](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/bootstrap-actions.md)** - Automated deployment actions and event-driven workflows
+- **[Substitutions & Variables](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/substitutions-and-variables.md)** - Dynamic configuration
+- **[Connections Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/connections.md)** - Configure AWS service integrations
+- **[GitHub Actions Integration](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-actions-integration.md)** - CI/CD automation setup
+- **[GitHub Workflow Application Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-workflow-application-guide.md)** - Application admin guide for direct branch deployment
+- **[GitHub Workflow DevOps Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/github-workflow-devops-guide.md)** - DevOps guide for direct branch deployment
+- **[Deployment Metrics](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pipeline-deployment-metrics.md)** - Monitoring with EventBridge
+- **[Catalog Import/Export Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/catalog-import-export-guide.md)** - Promote DataZone catalog resources across environments
+- **[Catalog Import/Export Quick Reference](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/catalog-import-export-quick-reference.md)** - Quick reference for catalog deployment
+- **[MCP Configuration](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/mcp-configuration.md)** - MCP server configuration guide
+- **[Q CLI Conversation Examples](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/q-cli-conversation-examples.md)** - Example conversations with Q CLI
 
 ### Reference
-- **[Manifest Schema](docs/manifest-schema.md)** - YAML schema validation and structure
-- **[Airflow AWS Operators](docs/airflow-aws-operators.md)** - Custom operator reference
-- **[Airflow in SMUS CI/CD Summary](docs/airflow-smus-cicd-summary.md)** - Overview of Airflow's role in SMUS CI/CD
-- **[Architecture](docs/architecture.md)** - CLI architecture documentation
-- **[Pipeline Architecture Diagram](docs/pipeline-architecture-diagram.md)** - CI/CD pipeline architecture overview
+- **[Manifest Schema](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/manifest-schema.md)** - YAML schema validation and structure
+- **[Airflow AWS Operators](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-aws-operators.md)** - Custom operator reference
+- **[Airflow in SMUS CI/CD Summary](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/airflow-smus-cicd-summary.md)** - Overview of Airflow's role in SMUS CI/CD
+- **[Architecture](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/architecture.md)** - CLI architecture documentation
+- **[Pipeline Architecture Diagram](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pipeline-architecture-diagram.md)** - CI/CD pipeline architecture overview
 
 ### Examples
-- **[Examples Guide](docs/examples-guide.md)** - Walkthrough of example applications
-- **[Data Notebooks](docs/examples-guide.md#-data-engineering---notebooks)** - Jupyter notebooks with Airflow
-- **[ML Training](docs/examples-guide.md#-machine-learning---training)** - SageMaker training with MLflow
-- **[ML Deployment](docs/examples-guide.md#-machine-learning---deployment)** - SageMaker endpoint deployment
-- **[QuickSight Dashboard](docs/examples-guide.md#-analytics---quicksight-dashboard)** - BI dashboards with Glue
-- **[GenAI Application](docs/examples-guide.md#-generative-ai)** - Bedrock agents and knowledge bases
+- **[Examples Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md)** - Walkthrough of example applications
+- **[Data Notebooks](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-data-engineering---notebooks)** - Jupyter notebooks with Airflow
+- **[ML Training](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-machine-learning---training)** - SageMaker training with MLflow
+- **[ML Deployment](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-machine-learning---deployment)** - SageMaker endpoint deployment
+- **[QuickSight Dashboard](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-analytics---quicksight-dashboard)** - BI dashboards with Glue
+- **[GenAI Application](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/examples-guide.md#-generative-ai)** - Bedrock agents and knowledge bases
 
 ### Development
-- **[Developer Guide](developer/developer-guide.md)** - Complete development guide with architecture, testing, and workflows
-- **[Development Guide](docs/development.md)** - Development workflows, testing, and contribution guidelines
-- **[PyPI Publishing](docs/pypi-publishing.md)** - PyPI publishing setup
-- **[AI Assistant Context](developer/AmazonQ.md)** - Context for AI assistants (Amazon Q, Kiro)
-- **[Tests Overview](tests/README.md)** - Testing infrastructure
+- **[Developer Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/developer/developer-guide.md)** - Complete development guide with architecture, testing, and workflows
+- **[Development Guide](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/development.md)** - Development workflows, testing, and contribution guidelines
+- **[PyPI Publishing](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/docs/pypi-publishing.md)** - PyPI publishing setup
+- **[AI Assistant Context](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/developer/AmazonQ.md)** - Context for AI assistants (Amazon Q, Kiro)
+- **[Tests Overview](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/tests/README.md)** - Testing infrastructure
 
 ### Support
 - **Issues**: [GitHub Issues](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues)
-- **Documentation**: [docs/](docs/)
-- **Examples**: [examples/](examples/)
+- **Documentation**: [docs/](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/tree/main/docs/)
+- **Examples**: [examples/](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/tree/main/examples/)
 
 ---
 
@@ -1225,7 +1225,7 @@ pip install -e .
 
 ## License
 
-This project is licensed under the MIT-0 License. See [LICENSE](../../LICENSE) for details.
+This project is licensed under the MIT-0 License. See [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) for details.
 
 ---
 
