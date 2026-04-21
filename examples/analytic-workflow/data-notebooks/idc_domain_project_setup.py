@@ -122,6 +122,129 @@ def get_sagemaker_domain_vpc(sm_domain_id, region):
 # VPC networking setup (S3 gateway endpoint + NAT gateway)
 # ---------------------------------------------------------------------------
 
+def setup_vpc_interface_endpoints(vpc_id, region, dry_run=False):
+    """Ensure VPC has required interface endpoints for notebook execution.
+
+    In VpcOnly mode with network isolation, notebook containers need
+    VPC endpoints to reach AWS services. Without these, the Jupyter
+    kernel times out trying to start (60s timeout).
+    """
+    ec2 = boto3.client("ec2", region_name=region)
+
+    print(f"\n🔌 VPC interface endpoints setup for {vpc_id}")
+
+    required_services = [
+        f"com.amazonaws.{region}.sagemaker.runtime",
+        f"com.amazonaws.{region}.ecr.api",
+        f"com.amazonaws.{region}.ecr.dkr",
+        f"com.amazonaws.{region}.logs",
+        f"com.amazonaws.{region}.sagemaker.api",
+        f"com.amazonaws.{region}.sts",
+        f"com.amazonaws.{region}.datazone",
+    ]
+
+    # Get existing endpoints
+    endpoints = ec2.describe_vpc_endpoints(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )["VpcEndpoints"]
+    existing_services = {
+        e["ServiceName"] for e in endpoints if e["State"] in ("available", "pending")
+    }
+
+    # Get subnets and security groups
+    subnets = ec2.describe_subnets(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )["Subnets"]
+    subnet_ids = [s["SubnetId"] for s in subnets]
+
+    # Find the VPC endpoint security group (or the environment SG)
+    sgs = ec2.describe_security_groups(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )["SecurityGroups"]
+
+    # Look for existing endpoint SG (used by existing interface endpoints)
+    endpoint_sg_id = None
+    env_sg_id = None
+    for ep in endpoints:
+        if ep.get("VpcEndpointType") == "Interface":
+            for g in ep.get("Groups", []):
+                endpoint_sg_id = g["GroupId"]
+                break
+            if endpoint_sg_id:
+                break
+
+    # Find the environment/project SG (datazone-* named)
+    for sg in sgs:
+        if sg["GroupName"].startswith("datazone-"):
+            env_sg_id = sg["GroupId"]
+            break
+
+    # If no endpoint SG found, use the environment SG
+    sg_for_endpoints = endpoint_sg_id or env_sg_id
+    if not sg_for_endpoints:
+        print("   ❌ No suitable security group found for VPC endpoints")
+        return
+
+    print(f"   Endpoint SG: {sg_for_endpoints}")
+    if env_sg_id and env_sg_id != sg_for_endpoints:
+        print(f"   Environment SG: {env_sg_id}")
+
+    # Ensure endpoint SG allows inbound 443 from environment SG
+    if env_sg_id and endpoint_sg_id and env_sg_id != endpoint_sg_id:
+        _ensure_sg_ingress(ec2, endpoint_sg_id, env_sg_id, dry_run)
+
+    # Create missing endpoints
+    for service in required_services:
+        if service in existing_services:
+            print(f"   ✓ {service.split('.')[-1]} endpoint exists")
+            continue
+        if dry_run:
+            print(f"   [DRY RUN] Would create {service.split('.')[-1]} endpoint")
+            continue
+        try:
+            resp = ec2.create_vpc_endpoint(
+                VpcId=vpc_id,
+                VpcEndpointType="Interface",
+                ServiceName=service,
+                SubnetIds=subnet_ids,
+                SecurityGroupIds=[sg_for_endpoints],
+                PrivateDnsEnabled=True,
+            )
+            ep_id = resp["VpcEndpoint"]["VpcEndpointId"]
+            print(f"   ✅ Created {service.split('.')[-1]} endpoint: {ep_id}")
+        except ec2.exceptions.ClientError as e:
+            if "already exists" in str(e).lower() or "RouteAlreadyExists" in str(e):
+                print(f"   ✓ {service.split('.')[-1]} endpoint already exists")
+            else:
+                print(f"   ⚠️ Failed to create {service.split('.')[-1]}: {e}")
+
+
+def _ensure_sg_ingress(ec2, endpoint_sg_id, env_sg_id, dry_run=False):
+    """Ensure the endpoint SG allows inbound HTTPS from the environment SG."""
+    sg = ec2.describe_security_groups(GroupIds=[endpoint_sg_id])["SecurityGroups"][0]
+    for rule in sg.get("IpPermissions", []):
+        if rule.get("FromPort") == 443 or rule.get("IpProtocol") == "-1":
+            for pair in rule.get("UserIdGroupPairs", []):
+                if pair["GroupId"] == env_sg_id:
+                    print(f"   ✓ Endpoint SG already allows inbound from env SG")
+                    return
+
+    if dry_run:
+        print(f"   [DRY RUN] Would add inbound 443 rule from {env_sg_id} to {endpoint_sg_id}")
+        return
+
+    ec2.authorize_security_group_ingress(
+        GroupId=endpoint_sg_id,
+        IpPermissions=[{
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "UserIdGroupPairs": [{"GroupId": env_sg_id}],
+        }],
+    )
+    print(f"   ✅ Added inbound 443 from env SG ({env_sg_id}) to endpoint SG ({endpoint_sg_id})")
+
+
 def setup_vpc_networking(vpc_id, region, dry_run=False):
     """Ensure VPC has S3 gateway endpoint and NAT gateway. Idempotent."""
     ec2 = boto3.client("ec2", region_name=region)
@@ -439,6 +562,7 @@ def main():
     # 1. VPC networking
     if vpc_id:
         setup_vpc_networking(vpc_id, region, dry_run=args.dry_run)
+        setup_vpc_interface_endpoints(vpc_id, region, dry_run=args.dry_run)
     else:
         print(f"\n🌐 No VPC — skipping networking setup")
 
