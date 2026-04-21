@@ -90,7 +90,16 @@ def main():
     print(f"Reading {readme_path}...")
     with open(readme_path, 'r', encoding='utf-8') as f:
         source_content = f.read()
-    
+
+    # Strip the language badge panel from source — the translation script
+    # adds its own badge panel with correct relative paths and highlighting
+    source_lines = source_content.split('\n')
+    source_lines = [
+        line for line in source_lines
+        if not re.match(r'\[!\[(?:en|pt|fr|it|ja|zh|he)\]', line)
+    ]
+    source_content = '\n'.join(source_lines)
+
     print(f"Source: {len(source_content)} chars, {len(source_content.splitlines())} lines\n")
     
     # Split into sections

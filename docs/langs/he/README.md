@@ -22,8 +22,6 @@
 [![zh](https://img.shields.io/badge/lang-zh-gray.svg)](docs/langs/zh/README.md)
 [![he](https://img.shields.io/badge/lang-he-gray.svg)](docs/langs/he/README.md)
 
-> **[תצוגה מקדימה]** Amazon SageMaker Unified Studio CI/CD CLI נמצא כעת בתצוגה מקדימה וכפוף לשינויים. פקודות, פורמטים של תצורה ו-APIs עשויים להשתנות על בסיס משוב מלקוחות. אנו ממליצים להעריך כלי זה בסביבות שאינן ייצור במהלך התצוגה המקדימה. למשוב ודיווחי באגים, אנא פתחו issue בכתובת https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues
-
 > **[דומיינים של IAM + IdC]** CLI זה תומך בדומיינים של SMUS מבוססי IAM ומבוססי IAM Identity Center (IdC). עבור דומיינים של IdC, ייתכן שתידרש הגדרה נוספת (רשת VPC, הרשאות Lake Formation, מדיניות IAM מוטמעת) - ראו את סקריפטי ההתקנה בכל תיקיית דוגמה.
 
 **אוטומציה של פריסת אפליקציות נתונים על פני סביבות SageMaker Unified Studio**

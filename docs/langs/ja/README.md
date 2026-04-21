@@ -18,8 +18,6 @@
 [![zh](https://img.shields.io/badge/lang-zh-gray.svg)](docs/langs/zh/README.md)
 [![he](https://img.shields.io/badge/lang-he-gray.svg)](docs/langs/he/README.md)
 
-> **[プレビュー]** Amazon SageMaker Unified Studio CI/CD CLI は現在プレビュー中であり、変更される可能性があります。コマンド、設定フォーマット、API は顧客フィードバックに基づいて進化する可能性があります。プレビュー期間中は、本番環境以外での評価を推奨します。フィードバックやバグ報告については、https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues に issue を開いてください。
-
 > **[IAM + IdC ドメイン]** この CLI は IAM ベースと IAM Identity Center (IdC) ベースの両方の SMUS ドメインをサポートしています。IdC ドメインの場合、追加のセットアップ（VPC ネットワーキング、Lake Formation パーミッション、インライン IAM ポリシー）が必要になる場合があります。各サンプルディレクトリのセットアップスクリプトを参照してください。
 
 **SageMaker Unified Studio 環境全体でデータアプリケーションのデプロイを自動化**
