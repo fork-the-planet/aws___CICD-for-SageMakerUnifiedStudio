@@ -12,7 +12,7 @@ content:
   - name: model-artifacts
     connectionName: default.s3_shared
     include:
-    - ml/bundle/model-artifacts
+    - ml/output/model-artifacts
   workflows:
   - workflowName: ml_deployment_workflow
     connectionName: default.workflow_serverless
