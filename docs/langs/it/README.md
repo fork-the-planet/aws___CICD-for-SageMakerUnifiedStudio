@@ -1228,7 +1228,7 @@ pip install -e .
 
 ## Licenza
 
-Questo progetto è concesso in licenza secondo la licenza MIT-0. Consulta [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) per i dettagli.
+Questo progetto è concesso in licenza secondo la licenza MIT. Consulta [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) per i dettagli.
 
 ---
 

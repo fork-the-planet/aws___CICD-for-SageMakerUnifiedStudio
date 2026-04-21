@@ -1229,7 +1229,7 @@ pip install -e .
 
 ## 许可证
 
-本项目采用 MIT-0 许可证。详情请参阅 [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE)。
+本项目采用 MIT 许可证。详情请参阅 [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE)。
 
 ---
 
