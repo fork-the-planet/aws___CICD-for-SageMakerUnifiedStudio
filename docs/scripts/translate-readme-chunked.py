@@ -73,7 +73,7 @@ CRITICAL RULES:
     
     try:
         response = bedrock.invoke_model(
-            modelId='us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+            modelId='us.anthropic.claude-sonnet-4-5-20250929-v1:0',
             body=json.dumps(request_body)
         )
         response_body = json.loads(response['body'].read())
