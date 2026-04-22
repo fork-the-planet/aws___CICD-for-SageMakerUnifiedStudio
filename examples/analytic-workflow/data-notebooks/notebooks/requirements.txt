@@ -168,7 +168,7 @@ openai==1.109.1
 openapi-schema-validator==0.6.3
 openapi-spec-validator==0.7.2
 opentelemetry-api==1.38.0
-opentelemetry-instrumentation==0.59b0
+opentelemetry-instrumentation==0.62b0
 opentelemetry-instrumentation-threading==0.59b0
 opentelemetry-proto==1.38.0
 opentelemetry-sdk==1.38.0
