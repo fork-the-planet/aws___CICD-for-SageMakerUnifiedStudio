@@ -1429,7 +1429,7 @@ pip install -e .
 
 ## רישיון
 
-פרויקט זה מורשה תחת רישיון MIT. ראה [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) לפרטים נוספים.
+פרויקט זה מורשה תחת רישיון Apache, גרסה 2.0. ראה [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) לפרטים נוספים.
 
 ---
 

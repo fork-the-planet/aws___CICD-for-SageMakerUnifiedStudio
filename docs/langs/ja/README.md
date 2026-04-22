@@ -1229,7 +1229,7 @@ pip install -e .
 
 ## ライセンス
 
-このプロジェクトは MIT ライセンスの下でライセンスされています。詳細は [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) を参照してください。
+このプロジェクトは Apache License, Version 2.0 の下でライセンスされています。詳細は [LICENSE](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/blob/main/LICENSE) を参照してください。
 
 ---
 
