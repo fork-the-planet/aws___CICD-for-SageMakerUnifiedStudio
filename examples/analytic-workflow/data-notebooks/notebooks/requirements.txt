@@ -222,7 +222,7 @@ pymysql==1.1.2
 pyopenssl==26.0.0
 pyparsing==3.2.5
 pypdf==6.10.2
-pyroaring==1.0.4
+pyroaring==1.1.0
 pyspark==3.5.7
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
