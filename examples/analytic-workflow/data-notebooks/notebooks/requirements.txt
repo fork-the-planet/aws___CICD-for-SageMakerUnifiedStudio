@@ -16,7 +16,7 @@ asttokens==3.0.1
 astunparse==1.6.3
 attrs==26.1.0
 autopep8==2.3.2
-aws-embedded-metrics==3.3.0
+aws-embedded-metrics==3.5.0
 aws-requests-auth==0.4.3
 awswrangler==3.14.0
 banks==2.4.2
