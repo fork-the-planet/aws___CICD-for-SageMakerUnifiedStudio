@@ -1,0 +1,34 @@
+# =============================================================================
+# DataOps Pipeline - Environment Configuration
+# =============================================================================
+# Used by: python3 scripts/load_env.py dataops
+# Exports environment variables needed by the manifest (per stage).
+#
+# Variable mapping (YAML key → env var):
+#   dev.domain_name → DEV_DOMAIN_NAME
+#   dev.region      → DEV_REGION
+#   dev.project_name → DEV_PROJECT_NAME
+#   dev.deployment_role → DEV_PROJECT_ROLE (exported as PROJECT_ROLE)
+#   dev.account_id  → DEV_ACCOUNT_ID (exported as AWS_ACCOUNT_ID)
+# =============================================================================
+
+dev:
+  domain_name: Default_05052026_Domain
+  region: us-east-1
+  project_name: bank-mktg-dev
+  deployment_role: dataops-admin
+  account_id: "973414239152"
+
+# test:
+#   domain_name: Default_05052026_Domain
+#   region: us-east-1
+#   project_name: bank-mktg-test
+#   deployment_role: AmazonSageMakerUserIAMExecutionRole_7e140a21
+#   account_id: "973414239152"
+
+# prod:
+#   domain_name: Default_05052026_Domain
+#   region: us-east-1
+#   project_name: bank-mktg-prod
+#   deployment_role: AmazonSageMakerUserIAMExecutionRole_9d936e0e
+#   account_id: "973414239152"

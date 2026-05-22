@@ -1,0 +1,68 @@
+# =============================================================================
+# DataOps Pipeline - Bank Mktg Data Processing
+# =============================================================================
+# End-to-end data operations: ingest raw bank marketing data, run Glue ETL
+# jobs for cleansing and transformation, execute data quality checks, and
+# refresh Athena catalog. Prepares data for ML classification models.
+#
+# Lifecycle:
+#   aws-smus-cicd-cli describe --manifest manifest.yaml --connect
+#   aws-smus-cicd-cli bundle  --manifest manifest.yaml --output-dir ./dist
+#   aws-smus-cicd-cli deploy  --manifest manifest.yaml --targets dev
+# =============================================================================
+
+
+applicationName: demo
+
+content:
+  storage:
+    - name: src
+      include:
+        - "src/"
+      exclude:
+        - __pycache__/
+        - "*.pyc"
+
+    - name: workflows
+      include:
+        - "workflows/"
+
+    - name: data
+      include:
+        - "data/"
+
+  workflows:
+    - workflowName: data_pipeline
+      connectionName: default.workflow_serverless
+
+stages:
+  dev:
+    stage: DEV
+    domain:
+      name: "${DEV_DOMAIN_NAME}"
+      region: "${DEV_REGION}"
+    project:
+      name: "${DEV_PROJECT_NAME}"
+      create: false
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_dev
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
+      PROJECT_ROLE: "${PROJECT_ROLE}"
+      PROJECT_ROLE_ARN: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_ROLE}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environment_configuration_name: 'Lakehouse Database'
+        - type: workflow.create
+          workflowName: data_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/workflows
+        - name: data
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/data

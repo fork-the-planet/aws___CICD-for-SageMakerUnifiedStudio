@@ -1,0 +1,141 @@
+# =============================================================================
+# MLOps Deploy Pipeline - Triggered by Lambda on Model Approval
+# =============================================================================
+# Triggers the deploy_pipeline workflow in MWAA Serverless after a model
+# version is approved in the SageMaker Model Registry.
+#
+# Flow:
+#   1. Lambda detects model approval event (EventBridge → Lambda)
+#   2. Lambda triggers this GitHub Actions workflow via repository_dispatch
+#   3. This workflow assumes the project role and triggers the deploy DAG
+#
+# Trigger: repository_dispatch from Lambda (event_type: model-approved)
+# Payload from Lambda:
+#   {
+#     "stage": "dev|test|prod",
+#     "model_package_arn": "arn:aws:sagemaker:...",
+#     "model_package_group": "bank-mktg-prediction-models",
+#     "approval_status": "Approved"
+#   }
+#
+# Required GitHub environment variables:
+#   AWS_ROLE_ARN          - OIDC role ARN
+#   AWS_ACCOUNT_ID        - AWS account ID
+#   DEPLOYMENT_ROLE_NAME  - Role to assume for deployment
+# =============================================================================
+
+name: Bank Mktg Model Deploy
+
+on:
+  repository_dispatch:
+    types: [model-approved]
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Target deployment stage"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, test, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-model:
+    name: Deploy Approved Model
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.client_payload.stage || inputs.stage || 'dev' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Resolve deployment parameters
+        id: params
+        shell: bash
+        run: |
+          # From Lambda (repository_dispatch) or manual trigger
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            STAGE="${{ github.event.client_payload.stage }}"
+            MODEL_PKG_ARN="${{ github.event.client_payload.model_package_arn }}"
+            MODEL_PKG_GROUP="${{ github.event.client_payload.model_package_group }}"
+          else
+            STAGE="${{ inputs.stage }}"
+            MODEL_PKG_ARN=""
+            MODEL_PKG_GROUP="bank-mktg-prediction-models"
+          fi
+
+          echo "stage=${STAGE:-dev}" >> $GITHUB_OUTPUT
+          echo "model_package_arn=${MODEL_PKG_ARN}" >> $GITHUB_OUTPUT
+          echo "model_package_group=${MODEL_PKG_GROUP:-bank-mktg-prediction-models}" >> $GITHUB_OUTPUT
+
+      - name: Authenticate via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Install CLI
+        run: pip install aws-smus-cicd-cli pyyaml boto3 -q
+
+      - name: Load environment config
+        run: python3 scripts/load_env.py mlops
+
+      - name: Assume project role and trigger deploy pipeline
+        shell: bash
+        working-directory: examples/mlops-pipeline
+        env:
+          STAGE: ${{ steps.params.outputs.stage }}
+          MODEL_PACKAGE_ARN: ${{ steps.params.outputs.model_package_arn }}
+          MODEL_PACKAGE_GROUP: ${{ steps.params.outputs.model_package_group }}
+        run: |
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║  Model Deployment - Triggered by Approval               ║"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  Stage          : ${STAGE}"
+          echo "║  Model Group    : ${MODEL_PACKAGE_GROUP}"
+          echo "║  Model Package  : ${MODEL_PACKAGE_ARN:-auto-detect}"
+          echo "║  Triggered by   : ${{ github.actor }}"
+          echo "║  Event          : ${{ github.event_name }}"
+          echo "╚══════════════════════════════════════════════════════════╝"
+          echo ""
+
+          # Assume project role
+          echo "::group::🔐 Assuming project role for ${STAGE}"
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "deploy-model-${STAGE}" \
+            --query 'Credentials' --output json)
+          export AWS_ACCESS_KEY_ID=$(echo $CREDS | jq -r .AccessKeyId)
+          export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | jq -r .SecretAccessKey)
+          export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r .SessionToken)
+          echo "::endgroup::"
+
+          # Trigger the deploy_pipeline DAG via SMUS CLI
+          echo "::group::🚀 Triggering deploy_pipeline for ${STAGE}"
+          aws-smus-cicd-cli run \
+            --manifest manifest.yaml \
+            --targets "${STAGE}" \
+            --workflow deploy_pipeline
+          echo "::endgroup::"
+
+          # Monitor the deploy pipeline execution
+          echo "::group::📊 Monitoring deploy_pipeline for ${STAGE}"
+          aws-smus-cicd-cli monitor \
+            --manifest manifest.yaml \
+            --targets "${STAGE}"
+          echo "::endgroup::"
+
+          echo ""
+          echo "✅ Deploy pipeline triggered for stage: ${STAGE}"
+          echo "   The deploy_pipeline DAG will:"
+          echo "   1. Find the latest approved model in ${MODEL_PACKAGE_GROUP}"
+          echo "   2. Create/update the SageMaker endpoint"
+          echo "   3. Log deployment to MLflow"

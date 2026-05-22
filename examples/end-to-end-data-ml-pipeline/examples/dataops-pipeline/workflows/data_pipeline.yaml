@@ -1,0 +1,129 @@
+# =============================================================================
+# Airflow Workflow: Bank Mktg DataOps Pipeline
+# =============================================================================
+# Orchestrates: Ingest → Transform → Quality Checks → Create Athena Table → Refresh
+# =============================================================================
+
+data_pipeline:
+  dag_id: data_pipeline
+  schedule: "0 5 * * *"
+  description: "Bank marketing data ingestion, transformation, and quality pipeline for ML classification"
+  tags:
+    - dataops
+    - banking
+    - glue
+    - ml-prep
+  default_args:
+    owner: data-engineering
+    retries: 0
+    retry_delay: 300
+
+  tasks:
+    ingest_bank_data:
+      operator: airflow.providers.amazon.aws.operators.glue.GlueJobOperator
+      job_name: bank-mktg-ingest-raw
+      iam_role_name: "{proj.iam_role_name}"
+      s3_bucket: "{proj.connection.default.s3_shared.bucket_name}"
+      region_name: "{domain.region}"
+      update_config: true
+      script_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/src/glue-jobs/glue_ingest_raw_data.py"
+      script_args:
+        --source_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/data/bank-mktg-sample.csv"
+        --target_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/staging/"
+        --data_type: "bank_mktg"
+      create_job_kwargs:
+        GlueVersion: "4.0"
+        NumberOfWorkers: 2
+        WorkerType: "G.1X"
+        MaxRetries: 0
+
+    transform_aggregate:
+      operator: airflow.providers.amazon.aws.operators.glue.GlueJobOperator
+      job_name: bank-mktg-transform
+      iam_role_name: "{proj.iam_role_name}"
+      s3_bucket: "{proj.connection.default.s3_shared.bucket_name}"
+      region_name: "{domain.region}"
+      update_config: true
+      script_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/src/glue-jobs/glue_transform_aggregate.py"
+      script_args:
+        --staging_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/staging/"
+        --analytics_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/transformed/"
+      create_job_kwargs:
+        GlueVersion: "4.0"
+        NumberOfWorkers: 4
+        WorkerType: "G.1X"
+        MaxRetries: 0
+      dependencies: [ingest_bank_data]
+
+    data_quality_checks:
+      operator: airflow.providers.amazon.aws.operators.glue.GlueJobOperator
+      job_name: bank-mktg-data-quality
+      iam_role_name: "{proj.iam_role_name}"
+      s3_bucket: "{proj.connection.default.s3_shared.bucket_name}"
+      region_name: "{domain.region}"
+      update_config: true
+      script_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/src/glue-jobs/glue_data_quality_checks.py"
+      script_args:
+        --analytics_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/transformed/"
+        --report_date: "{{ ds }}"
+        --dq_results_path: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/quality_reports"
+      create_job_kwargs:
+        GlueVersion: "4.0"
+        NumberOfWorkers: 2
+        WorkerType: "G.1X"
+        MaxRetries: 0
+      dependencies: [transform_aggregate]
+
+    create_athena_database:
+      operator: airflow.providers.amazon.aws.operators.athena.AthenaOperator
+      aws_conn_id: aws_default
+      database: default
+      query: CREATE DATABASE IF NOT EXISTS bank_mktg_dev
+      output_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/athena_results/"
+      dependencies:
+        - data_quality_checks
+
+    create_athena_table:
+      operator: airflow.providers.amazon.aws.operators.athena.AthenaOperator
+      aws_conn_id: aws_default
+      database: "bank_mktg_dev"
+      query: |
+        CREATE EXTERNAL TABLE IF NOT EXISTS campaign_results (
+          age INT,
+          job STRING,
+          marital STRING,
+          education STRING,
+          `default` STRING,
+          housing STRING,
+          loan STRING,
+          contact STRING,
+          month STRING,
+          day_of_week STRING,
+          duration INT,
+          campaign INT,
+          pdays INT,
+          previous INT,
+          poutcome STRING,
+          emp_var_rate DOUBLE,
+          cons_price_idx DOUBLE,
+          cons_conf_idx DOUBLE,
+          euribor3m DOUBLE,
+          nr_employed DOUBLE,
+          y STRING,
+          age_group STRING,
+          contacted_before INT
+        )
+        STORED AS PARQUET
+        LOCATION '{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/transformed/'
+      output_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/athena_results/"
+      dependencies:
+        - create_athena_database
+
+    refresh_athena_table:
+      operator: airflow.providers.amazon.aws.operators.athena.AthenaOperator
+      aws_conn_id: aws_default
+      database: "bank_mktg_dev"
+      query: MSCK REPAIR TABLE campaign_results
+      output_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/athena_results/"
+      dependencies:
+        - create_athena_table
