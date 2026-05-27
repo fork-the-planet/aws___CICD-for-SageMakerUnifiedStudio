@@ -1,4 +1,4 @@
-absl-py==2.3.1
+absl-py==2.4.0
 aiobotocore==2.25.2
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.4
