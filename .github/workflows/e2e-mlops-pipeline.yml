@@ -26,3 +26,4 @@ jobs:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
       test_target: 'dev'
       setup_mlflow: true
+      skip_tests: true

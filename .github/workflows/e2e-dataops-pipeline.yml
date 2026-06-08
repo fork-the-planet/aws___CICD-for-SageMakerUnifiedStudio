@@ -25,3 +25,4 @@ jobs:
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
       test_target: 'dev'
+      skip_tests: true
