@@ -43,6 +43,8 @@ stages:
       region: ${DEV_DOMAIN_REGION}
     project:
       name: ${DEV_PROJECT_NAME}
+      owners:
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-SMUS-CLI-Tests
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_dev
       ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
