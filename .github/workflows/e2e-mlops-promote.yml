@@ -1,0 +1,729 @@
+# =============================================================================
+# MLOps Model Promotion Pipeline - Bank Mktg Prediction
+# =============================================================================
+# Promotes a *single* approved model version from the Model Registry across
+# dev -> test -> prod by running the deploy_pipeline workflow in each stage's
+# project, gated on real DAG-task success and an endpoint smoke test.
+#
+# Patterns borrowed from the upstream SMUS reusable workflow
+# (aws/CICD-for-SageMakerUnifiedStudio/.github/workflows/smus-bundle-deploy.yml):
+#   - "build once, promote everywhere": pin the model package ARN once in a
+#     `prepare` job and feed the same ARN to every stage. Each stage's
+#     deploy_model.py uses --model-package-arn instead of "latest approved".
+#   - `describe --connect` per stage as a cheap pre-deploy validation gate.
+#   - Real failure propagation: don't trust `monitor` alone. After it returns,
+#     query SageMaker for the deploy processing-job status and fail if the
+#     DAG task didn't actually succeed. This is what masked the 2026-06-03
+#     incident where monitor exited 0 even though the deploy task had failed.
+#   - `if: always()` artifact capture: dump CloudWatch logs of the latest
+#     deploy processing job to a workflow artifact so postmortems don't need
+#     shell access.
+#   - GitHub Environments per stage (dev/test/prod) for OIDC roles, vars,
+#     and (on GitHub Pro/Team) required reviewers. On Free + private repos
+#     we instead use trstringer/manual-approval@v1 to gate test and prod
+#     via Issue comments, which works on any plan.
+#
+# Flow:
+#   prepare       : pick the latest Approved model package ARN once
+#   deploy-dev    : describe -> run DAG -> monitor -> status check -> smoke
+#   approve-test  : open issue, wait for "approved" comment from approver
+#   deploy-test   : same shape as deploy-dev, gated by approve-test
+#   approve-prod  : open issue, wait for "approved" comment from approver
+#   deploy-prod   : same shape, gated by approve-prod
+#
+# Manual approval gates:
+#   The approve-test and approve-prod jobs use trstringer/manual-approval
+#   to open a GitHub Issue and pause until an approver replies "approved".
+#   Approver IDs come from (in order):
+#     1. `inputs.approvers_override` (workflow_dispatch one-off)
+#     2. `vars.TEST_APPROVERS` / `vars.PROD_APPROVERS` (configured in repo
+#        or environment Settings → Variables; comma-separated GitHub
+#        usernames or org/team handles)
+#     3. `github.repository_owner` (sane default for fresh repos)
+#   Issue is automatically closed when the workflow continues.
+#
+#   The `environment:` keys on deploy-test/deploy-prod are kept for
+#   forward-compat: if you upgrade to GitHub Pro/Team you can layer
+#   native required-reviewers on top of the comment-based gate by
+#   configuring them in repo Settings -> Environments.
+#
+# Trigger: workflow_dispatch (choose start stage).
+#
+# Required GitHub vars per environment (dev/test/prod):
+#   AWS_ROLE_ARN          - OIDC role for the stage
+#   AWS_ACCOUNT_ID        - AWS account
+#   DEPLOYMENT_ROLE_NAME  - Project role to assume
+#   AWS_REGION            - Region (default us-east-1)
+# =============================================================================
+
+name: End-to-End Data ML Pipeline - MLOps Promotion (dev -> test -> prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_at:
+        description: "First stage to deploy. Subsequent stages run sequentially."
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, test, prod]
+      run_smoke_test:
+        description: "Run endpoint smoke test after each deploy"
+        required: false
+        default: true
+        type: boolean
+      model_package_arn:
+        description: "Override model package ARN (default: latest Approved)"
+        required: false
+        default: ""
+        type: string
+      approvers_override:
+        description: "Comma-separated approvers for this run (overrides vars.TEST_APPROVERS / vars.PROD_APPROVERS)"
+        required: false
+        default: ""
+        type: string
+
+  # Event-driven trigger from the Lambda set up by
+  # examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh.
+  # Lambda fires this on SageMaker model approval (in dev's registry) so the
+  # full dev -> test -> prod cascade kicks off automatically. Manual approval
+  # gates on the `test` and `prod` environments still gate downstream stages.
+  #
+  # Lambda payload:
+  #   {
+  #     "event_type": "model-approved",
+  #     "client_payload": {
+  #       "stage": "dev",                          # informational
+  #       "model_package_arn": "arn:aws:sagemaker:...",
+  #       "model_package_group": "bank-mktg-prediction-models"
+  #     }
+  #   }
+  # The model_package_arn from the payload pins the version we promote, so
+  # the human-approved version is exactly the one that flows to prod.
+  repository_dispatch:
+    types: [model-approved]
+
+permissions:
+  id-token: write
+  contents: read
+  # Needed by trstringer/manual-approval so it can create an Issue for
+  # each approval gate and read comments on it.
+  issues: write
+
+env:
+  WORKFLOW_NAME: deploy_pipeline
+  MANIFEST_DIR: examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline
+  MODEL_PACKAGE_GROUP: bank-mktg-prediction-models
+  LOAD_ENV: examples/end-to-end-data-ml-pipeline/scripts/load_env.py
+  MLOPS_HELPER: examples/end-to-end-data-ml-pipeline/scripts/mlops_helper.py
+
+jobs:
+  # ── PREPARE ────────────────────────────────────────────────────────────────
+  # Pick the model package ARN once. All downstream stages deploy this exact
+  # version, so a new approval that lands while promotion is mid-flight does
+  # not silently change what reaches prod.
+  prepare:
+    name: Select & stage model
+    runs-on: ubuntu-latest
+    # Run this in the dev environment because that's where the registry lives
+    # in our single-account topology. In multi-account, this would target a
+    # dedicated registry account.
+    environment: dev
+    outputs:
+      model_package_arn: ${{ steps.pick.outputs.arn }}
+      model_package_version: ${{ steps.pick.outputs.version }}
+      staged_url_test: ${{ steps.stage-test.outputs.staged_url }}
+      staged_url_prod: ${{ steps.stage-prod.outputs.staged_url }}
+      start_at: ${{ steps.params.outputs.start_at }}
+      run_smoke_test: ${{ steps.params.outputs.run_smoke_test }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Resolve trigger params
+        id: params
+        # Normalize trigger source so downstream jobs use the same field
+        # names. Lambda always kicks off the full cascade (dev -> test ->
+        # prod) starting at dev, with the approved model package ARN
+        # pinned. Manual workflow_dispatch lets you start mid-cascade
+        # (e.g. start_at=test) for re-promotion scenarios.
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            START="dev"
+            ARN_OVERRIDE="${{ github.event.client_payload.model_package_arn }}"
+            SMOKE="true"
+            echo "Trigger: Lambda repository_dispatch (full cascade from dev)"
+          else
+            START="${{ inputs.start_at }}"
+            ARN_OVERRIDE="${{ inputs.model_package_arn }}"
+            SMOKE="${{ inputs.run_smoke_test }}"
+            echo "Trigger: workflow_dispatch (cascade from $START)"
+          fi
+          echo "  start_at:           $START"
+          echo "  run_smoke_test:     $SMOKE"
+          echo "  model_package_arn:  ${ARN_OVERRIDE:-<latest approved>}"
+          {
+            echo "start_at=$START"
+            echo "run_smoke_test=$SMOKE"
+            echo "model_package_arn_override=$ARN_OVERRIDE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install dependencies
+        run: pip install boto3 pyyaml -q
+
+      - name: Load environment config
+        run: python3 ${{ env.LOAD_ENV }} mlops
+
+      - name: Assume project role
+        # Switch to dataops-admin before any SageMaker / S3 / DataZone
+        # calls. The OIDC role only has permissions to assume the
+        # deployment role; everything else (DescribeModelPackage,
+        # cross-project S3 copy, datazone:ListProjects) needs dataops-admin.
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "promote-prepare-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
+
+      - name: Pick model package
+        id: pick
+        shell: bash
+        env:
+          PROVIDED_ARN: ${{ steps.params.outputs.model_package_arn_override }}
+          REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+        run: |
+          if [ -n "$PROVIDED_ARN" ]; then
+            echo "Using user-supplied ARN: $PROVIDED_ARN"
+            echo "arn=$PROVIDED_ARN" >> "$GITHUB_OUTPUT"
+            VERSION=$(python3 -c "import boto3,os; v=boto3.client('sagemaker', region_name=os.environ['REGION']).describe_model_package(ModelPackageName=os.environ['PROVIDED_ARN']).get('ModelPackageVersion','?'); print(v)")
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            python3 ${{ env.MLOPS_HELPER }} select-package \
+              --group "$MODEL_PACKAGE_GROUP" \
+              --region "$REGION"
+          fi
+
+      - name: Stage artifact into TEST bucket
+        id: stage-test
+        # Stage into test whenever test or any earlier stage is in scope.
+        if: ${{ steps.params.outputs.start_at != 'prod' }}
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} stage-artifact \
+            --model-package-arn "${{ steps.pick.outputs.arn }}" \
+            --domain-name "$DEV_DOMAIN_NAME" \
+            --target-project-name "$TEST_PROJECT_NAME" \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+
+      - name: Stage artifact into PROD bucket
+        id: stage-prod
+        # Always stage into prod - cheap, idempotent, and covers any
+        # start-at choice that ultimately reaches prod.
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} stage-artifact \
+            --model-package-arn "${{ steps.pick.outputs.arn }}" \
+            --domain-name "$DEV_DOMAIN_NAME" \
+            --target-project-name "$PROD_PROJECT_NAME" \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+
+      - name: Summary
+        run: |
+          echo "### 📦 Model package selected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ARN     | \`${{ steps.pick.outputs.arn }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.pick.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staged (test) | \`${{ steps.stage-test.outputs.staged_url || 'n/a' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staged (prod) | \`${{ steps.stage-prod.outputs.staged_url || 'n/a' }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ── DEV ────────────────────────────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy to DEV
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.start_at == 'dev' && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      STAGE: dev
+      ENDPOINT_NAME: bank-mktg-prediction-dev
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Authenticate via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install CLI
+        run: pip install aws-smus-cicd-cli pyyaml boto3 -q
+
+      - name: Load environment config
+        run: python3 ${{ env.LOAD_ENV }} mlops
+
+      - name: Export workflow env for manifest substitution
+        run: |
+          {
+            echo "GIT_COMMIT=${{ github.sha }}"
+            echo "MODEL_PACKAGE_ARN=${{ needs.prepare.outputs.model_package_arn }}"
+            # SMUS CLI manifest validator rejects empty env vars; "none"
+            # is the sentinel deploy_model.py treats as "no override".
+            echo "MODEL_DATA_URL_OVERRIDE=none"
+          } >> $GITHUB_ENV
+
+      - name: Assume project role
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "promote-dev-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
+
+      - name: Validate target (describe --connect)
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli describe --manifest manifest.yaml --targets "$STAGE" --connect
+
+      - name: Push DAG + src/ to project (deploy)
+        # Without this, MWAA keeps executing whatever DAG version was
+        # last deployed and ignores any new container args we threaded
+        # through deploy_pipeline.yaml or deploy_model.py.
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli deploy --manifest manifest.yaml --targets "$STAGE"
+
+      - name: Run deploy_pipeline DAG
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: |
+          aws-smus-cicd-cli run --manifest manifest.yaml --targets "$STAGE" --workflow "$WORKFLOW_NAME"
+          aws-smus-cicd-cli monitor --manifest manifest.yaml --targets "$STAGE" --live
+
+      - name: Verify deploy processing job succeeded
+        # Belt-and-suspenders: monitor has been observed exiting 0 even when
+        # the DAG's processing task failed. Check SageMaker directly.
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --max-age-minutes 60
+
+      - name: Smoke test endpoint
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} smoke-test \
+            --endpoint-name "$ENDPOINT_NAME" \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+
+      - name: Record deploy on model package metadata
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        shell: bash
+        run: |
+          # AWS does not allow `add-tags` on a Model Package version (only on
+          # the group), so promotion state is recorded via
+          # CustomerMetadataProperties. update-model-package replaces the map,
+          # so we merge existing keys before writing.
+          ARN="${{ needs.prepare.outputs.model_package_arn }}"
+          aws sagemaker describe-model-package --model-package-name "$ARN" \
+            --query 'CustomerMetadataProperties' --output json > /tmp/props.json || echo '{}' > /tmp/props.json
+          jq --arg ts "$(date -u +%FT%TZ)" \
+             '. + {last_deployed_stage: "dev", deployed_to_dev_at: $ts}' \
+             /tmp/props.json > /tmp/props-merged.json
+          aws sagemaker update-model-package \
+            --model-package-arn "$ARN" \
+            --customer-metadata-properties "file:///tmp/props-merged.json"
+          echo "Recorded last_deployed_stage=dev on $ARN"
+
+      - name: Capture deploy logs for postmortem
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --output-dir "$RUNNER_TEMP/deploy-logs-dev"
+
+      - name: Upload deploy logs artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-logs-dev-${{ github.run_id }}
+          path: ${{ runner.temp }}/deploy-logs-dev/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── APPROVE → TEST ─────────────────────────────────────────────────────────
+  # Free-plan-friendly manual approval. Opens a GitHub Issue and waits for
+  # an "approved" comment from the listed approver(s). On private repos this
+  # avoids the GitHub Pro requirement for environment-level required
+  # reviewers. Runs only when the cascade is actually going to deploy to
+  # test (start_at <= test and dev succeeded, or start_at == test).
+  approve-test:
+    name: Approve TEST deploy
+    needs: [prepare, deploy-dev]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      (
+        (needs.prepare.outputs.start_at == 'dev' && needs.deploy-dev.result == 'success') ||
+        needs.prepare.outputs.start_at == 'test'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          # Approvers come from (in order): workflow_dispatch override input,
+          # vars.TEST_APPROVERS, then the repo owner as a sane fallback so
+          # the workflow can still run on a fresh repo without setup.
+          approvers: ${{ inputs.approvers_override || vars.TEST_APPROVERS || github.repository_owner }}
+          minimum-approvals: 1
+          issue-title: "Approve TEST deploy of model package v${{ needs.prepare.outputs.model_package_version }}"
+          issue-body: |
+            Promotion run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            is waiting to deploy the following model to **test**:
+
+            - Model package ARN: `${{ needs.prepare.outputs.model_package_arn }}`
+            - Version: `${{ needs.prepare.outputs.model_package_version }}`
+            - Staged URL (test): `${{ needs.prepare.outputs.staged_url_test }}`
+
+            Reply with `approved` to continue, or `denied` to cancel.
+          exclude-workflow-initiator-as-approver: false
+
+  # ── TEST ───────────────────────────────────────────────────────────────────
+  deploy-test:
+    name: Deploy to TEST
+    needs: [prepare, deploy-dev, approve-test]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.approve-test.result == 'success' &&
+      (
+        (needs.prepare.outputs.start_at == 'dev' && needs.deploy-dev.result == 'success') ||
+        needs.prepare.outputs.start_at == 'test'
+      )
+    runs-on: ubuntu-latest
+    # Manual approval gate: see approve-test job above. The `environment:
+    # test` key here is still useful if you later upgrade to GitHub Pro and
+    # want to add the native required-reviewers check on top of the
+    # comment-based gate.
+    environment: test
+    env:
+      STAGE: test
+      ENDPOINT_NAME: bank-mktg-prediction-test
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Authenticate via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install CLI
+        run: pip install aws-smus-cicd-cli pyyaml boto3 -q
+
+      - name: Load environment config
+        run: python3 ${{ env.LOAD_ENV }} mlops
+
+      - name: Export workflow env for manifest substitution
+        run: |
+          OVERRIDE='${{ needs.prepare.outputs.staged_url_test }}'
+          if [ -z "$OVERRIDE" ]; then
+            echo "::error::staged_url_test missing from prepare outputs"
+            exit 1
+          fi
+          {
+            echo "GIT_COMMIT=${{ github.sha }}"
+            echo "MODEL_PACKAGE_ARN=${{ needs.prepare.outputs.model_package_arn }}"
+            echo "MODEL_DATA_URL_OVERRIDE=$OVERRIDE"
+          } >> $GITHUB_ENV
+
+      - name: Assume project role
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "promote-test-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
+
+      - name: Validate target (describe --connect)
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli describe --manifest manifest.yaml --targets "$STAGE" --connect
+
+      - name: Push DAG + src/ to project (deploy)
+        # Without this, MWAA keeps executing whatever DAG version was
+        # last deployed and ignores any new container args we threaded
+        # through deploy_pipeline.yaml or deploy_model.py.
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli deploy --manifest manifest.yaml --targets "$STAGE"
+
+      - name: Run deploy_pipeline DAG
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: |
+          aws-smus-cicd-cli run --manifest manifest.yaml --targets "$STAGE" --workflow "$WORKFLOW_NAME"
+          aws-smus-cicd-cli monitor --manifest manifest.yaml --targets "$STAGE" --live
+
+      - name: Verify deploy processing job succeeded
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --max-age-minutes 60
+
+      - name: Smoke test endpoint
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} smoke-test \
+            --endpoint-name "$ENDPOINT_NAME" \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+
+      - name: Record deploy on model package metadata
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        shell: bash
+        run: |
+          ARN="${{ needs.prepare.outputs.model_package_arn }}"
+          aws sagemaker describe-model-package --model-package-name "$ARN" \
+            --query 'CustomerMetadataProperties' --output json > /tmp/props.json || echo '{}' > /tmp/props.json
+          jq --arg ts "$(date -u +%FT%TZ)" \
+             '. + {last_deployed_stage: "test", deployed_to_test_at: $ts}' \
+             /tmp/props.json > /tmp/props-merged.json
+          aws sagemaker update-model-package \
+            --model-package-arn "$ARN" \
+            --customer-metadata-properties "file:///tmp/props-merged.json"
+          echo "Recorded last_deployed_stage=test on $ARN"
+
+      - name: Capture deploy logs for postmortem
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --output-dir "$RUNNER_TEMP/deploy-logs-test"
+
+      - name: Upload deploy logs artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-logs-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/deploy-logs-test/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── PROD ───────────────────────────────────────────────────────────────────
+  # ── APPROVE → PROD ─────────────────────────────────────────────────────────
+  # Stricter gate than test - this is the production endpoint. Same Issue-
+  # comment pattern, ideally a different reviewer set in real teams (release
+  # manager / compliance). For the demo we keep the same approver.
+  approve-prod:
+    name: Approve PROD deploy
+    needs: [prepare, deploy-test]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      (
+        ((needs.prepare.outputs.start_at == 'dev' || needs.prepare.outputs.start_at == 'test') && needs.deploy-test.result == 'success') ||
+        needs.prepare.outputs.start_at == 'prod'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          # Approvers come from (in order): workflow_dispatch override input,
+          # vars.PROD_APPROVERS, then the repo owner as a sane fallback.
+          # Use vars.PROD_APPROVERS to require a different reviewer set than
+          # test (e.g. release managers / compliance).
+          approvers: ${{ inputs.approvers_override || vars.PROD_APPROVERS || github.repository_owner }}
+          minimum-approvals: 1
+          issue-title: "Approve PROD deploy of model package v${{ needs.prepare.outputs.model_package_version }}"
+          issue-body: |
+            ⚠️ **Production deploy approval required**
+
+            Promotion run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            has finished test and is waiting to deploy to **prod**:
+
+            - Model package ARN: `${{ needs.prepare.outputs.model_package_arn }}`
+            - Version: `${{ needs.prepare.outputs.model_package_version }}`
+            - Staged URL (prod): `${{ needs.prepare.outputs.staged_url_prod }}`
+
+            Confirm test smoke checks were green before approving.
+
+            Reply with `approved` to continue, or `denied` to cancel.
+          exclude-workflow-initiator-as-approver: false
+
+  deploy-prod:
+    name: Deploy to PROD
+    needs: [prepare, deploy-test, approve-prod]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.approve-prod.result == 'success' &&
+      (
+        ((needs.prepare.outputs.start_at == 'dev' || needs.prepare.outputs.start_at == 'test') && needs.deploy-test.result == 'success') ||
+        needs.prepare.outputs.start_at == 'prod'
+      )
+    runs-on: ubuntu-latest
+    # Manual approval gate: see approve-prod job above. Keeping the
+    # `environment: prod` key for forward-compat with GitHub Pro's native
+    # required-reviewers feature if you ever upgrade.
+    environment: prod
+    env:
+      STAGE: prod
+      ENDPOINT_NAME: bank-mktg-prediction-prod
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Authenticate via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install CLI
+        run: pip install aws-smus-cicd-cli pyyaml boto3 -q
+
+      - name: Load environment config
+        run: python3 ${{ env.LOAD_ENV }} mlops
+
+      - name: Export workflow env for manifest substitution
+        run: |
+          OVERRIDE='${{ needs.prepare.outputs.staged_url_prod }}'
+          if [ -z "$OVERRIDE" ]; then
+            echo "::error::staged_url_prod missing from prepare outputs"
+            exit 1
+          fi
+          {
+            echo "GIT_COMMIT=${{ github.sha }}"
+            echo "MODEL_PACKAGE_ARN=${{ needs.prepare.outputs.model_package_arn }}"
+            echo "MODEL_DATA_URL_OVERRIDE=$OVERRIDE"
+          } >> $GITHUB_ENV
+
+      - name: Assume project role
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "promote-prod-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
+
+      - name: Validate target (describe --connect)
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli describe --manifest manifest.yaml --targets "$STAGE" --connect
+
+      - name: Push DAG + src/ to project (deploy)
+        # Without this, MWAA keeps executing whatever DAG version was
+        # last deployed and ignores any new container args we threaded
+        # through deploy_pipeline.yaml or deploy_model.py.
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: aws-smus-cicd-cli deploy --manifest manifest.yaml --targets "$STAGE"
+
+      - name: Run deploy_pipeline DAG
+        working-directory: ${{ env.MANIFEST_DIR }}
+        run: |
+          aws-smus-cicd-cli run --manifest manifest.yaml --targets "$STAGE" --workflow "$WORKFLOW_NAME"
+          aws-smus-cicd-cli monitor --manifest manifest.yaml --targets "$STAGE" --live
+
+      - name: Verify deploy processing job succeeded
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --max-age-minutes 60
+
+      - name: Smoke test endpoint
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} smoke-test \
+            --endpoint-name "$ENDPOINT_NAME" \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+
+      - name: Record deploy on model package metadata
+        if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
+        shell: bash
+        run: |
+          ARN="${{ needs.prepare.outputs.model_package_arn }}"
+          aws sagemaker describe-model-package --model-package-name "$ARN" \
+            --query 'CustomerMetadataProperties' --output json > /tmp/props.json || echo '{}' > /tmp/props.json
+          jq --arg ts "$(date -u +%FT%TZ)" \
+             '. + {last_deployed_stage: "prod", deployed_to_prod_at: $ts}' \
+             /tmp/props.json > /tmp/props-merged.json
+          aws sagemaker update-model-package \
+            --model-package-arn "$ARN" \
+            --customer-metadata-properties "file:///tmp/props-merged.json"
+          echo "Recorded last_deployed_stage=prod on $ARN"
+
+      - name: Capture deploy logs for postmortem
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --output-dir "$RUNNER_TEMP/deploy-logs-prod"
+
+      - name: Upload deploy logs artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-logs-prod-${{ github.run_id }}
+          path: ${{ runner.temp }}/deploy-logs-prod/**
+          if-no-files-found: ignore
+          retention-days: 14

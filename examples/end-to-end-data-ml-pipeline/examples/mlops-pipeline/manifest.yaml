@@ -62,6 +62,13 @@ stages:
       ENDPOINT_NAME: bank-mktg-prediction-dev
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${DEV_DOMAIN_REGION}}"
       MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${DEV_DOMAIN_REGION}}"
+      # Promotion overrides — set by the GitHub workflow. "none" sentinel
+      # means "no override" so deploy_model.py falls back to "latest Approved"
+      # / the package's own ModelDataUrl. GIT_COMMIT is informational and
+      # gets stamped on the deployment report for traceability.
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
     bootstrap:
       actions:
         - type: datazone.create_environment
@@ -102,6 +109,9 @@ stages:
       ENDPOINT_NAME: bank-mktg-prediction-test
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
       MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${TEST_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
     bootstrap:
       actions:
         - type: datazone.create_environment
@@ -112,6 +122,49 @@ stages:
           properties:
             trackingServerArn: "arn:aws:sagemaker:${TEST_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
             trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
+        - type: workflow.create
+          workflowName: training_pipeline
+        - type: workflow.create
+          workflowName: deploy_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/workflows
+        - name: data
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/data
+
+  prod:
+    stage: PROD
+    domain:
+      name: "${PROD_DOMAIN_NAME}"
+      region: ${PROD_DOMAIN_REGION}
+    project:
+      name: ${PROD_PROJECT_NAME}
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_prod
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
+      EXPERIMENT_NAME: bank-mktg-experiments
+      ENDPOINT_NAME: bank-mktg-prediction-prod
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${PROD_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environmentConfigurationName: "OnDemand Workflows"
+        - type: datazone.create_connection
+          name: mlflow-tracking
+          connection_type: MLFLOW
+          properties:
+            trackingServerArn: "arn:aws:sagemaker:${PROD_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
         - type: workflow.create
           workflowName: training_pipeline
         - type: workflow.create
