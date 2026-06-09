@@ -72,6 +72,24 @@ jobs:
           echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
           echo "✓ AWS Account ID: $ACCOUNT_ID"
 
+      - name: Assume project role
+        # The OIDC role only has sts:AssumeRole on the deployment role.
+        # DataZone / SageMaker / S3 calls need the broader-perm project role.
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "smus-e2e-deploy-${{ inputs.test_target }}-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
+
       - name: Setup MLflow Tracking Server
         id: mlflow-setup
         if: ${{ inputs.setup_mlflow }}
@@ -174,6 +192,22 @@ jobs:
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+
+      - name: Assume project role
+        shell: bash
+        run: |
+          CREDS=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
+            --role-session-name "smus-e2e-test-${{ inputs.test_target }}-${{ github.run_id }}" \
+            --query 'Credentials' --output json)
+          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
+          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
+          {
+            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
+            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
+            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
+          } >> $GITHUB_ENV
 
       - name: aws-smus-cicd-cli test
         env:
