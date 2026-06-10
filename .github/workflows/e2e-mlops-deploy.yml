@@ -37,9 +37,9 @@ on:
         default: false
         type: boolean
       github_repo:
-        description: "GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into"
+        description: "GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into (defaults to this repo)"
         required: false
-        default: "velpualvi/blog-smus-ops"
+        default: ""
         type: string
 
 permissions:
@@ -147,7 +147,7 @@ jobs:
         if: ${{ inputs.setup_infra }}
         shell: bash
         env:
-          GITHUB_REPO: ${{ inputs.github_repo }}
+          GITHUB_REPO: ${{ inputs.github_repo || github.repository }}
         run: |
           PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', matrix.stage) }}"
           REGION="${{ vars.AWS_REGION || 'us-east-1' }}"

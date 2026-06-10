@@ -40,7 +40,7 @@ on:
         default: false
 
       github_repo:
-        description: 'GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into'
+        description: "GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into (defaults to this repo)"
         required: false
         type: string
         default: ''
@@ -108,7 +108,7 @@ jobs:
         if: ${{ inputs.setup_infra }}
         shell: bash
         env:
-          GITHUB_REPO: ${{ inputs.github_repo }}
+          GITHUB_REPO: ${{ inputs.github_repo || github.repository }}
         run: |
           REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
           PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', inputs.test_target) }}"
