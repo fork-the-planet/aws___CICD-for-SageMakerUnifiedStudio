@@ -153,7 +153,14 @@ training_pipeline:
       retries: 0
       dependencies: [evaluate_model]
       image_uri: "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-xgboost:1.7-1"
-      model_url: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/models/bank-mktg-xgb-{{ ts_nodash }}/output/model.tar.gz"
+      # Pull the model artifact from the actual training job's output rather
+      # than reconstructing the path from {{ ts_nodash }}. SageMaker training
+      # job names must be globally unique, so on re-runs of the same logical
+      # date the operator appends a "-<timestamp>" suffix to avoid collisions —
+      # which makes a {{ ts_nodash }}-based path point at the wrong (or a
+      # failed) job. The train task's XCom carries the real S3ModelArtifacts
+      # location of the job that actually ran.
+      model_url: "{{ ti.xcom_pull(task_ids='train_model')['Training']['ModelArtifacts']['S3ModelArtifacts'] }}"
       package_group_name: "bank-mktg-prediction-models"
 
 # end of workflow
