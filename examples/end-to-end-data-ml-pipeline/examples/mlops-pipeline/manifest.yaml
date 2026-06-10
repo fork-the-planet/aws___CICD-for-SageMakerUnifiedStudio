@@ -122,8 +122,7 @@ stages:
           properties:
             trackingServerArn: "arn:aws:sagemaker:${TEST_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
             trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${TEST_DOMAIN_REGION}}"
-        - type: workflow.create
-          workflowName: training_pipeline
+        # Test only deploys promoted models; training happens in dev.
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
@@ -165,8 +164,7 @@ stages:
           properties:
             trackingServerArn: "arn:aws:sagemaker:${PROD_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
             trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-${PROD_DOMAIN_REGION}}"
-        - type: workflow.create
-          workflowName: training_pipeline
+        # Prod only deploys promoted models; training happens in dev.
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
