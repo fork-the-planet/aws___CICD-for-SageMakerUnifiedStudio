@@ -55,7 +55,9 @@ def find_missing_env_vars(data: Union[Dict, List, str]) -> List[str]:
             for item in value:
                 check_value(item)
         elif isinstance(value, str):
-            pattern = r"\$\{([^}:]+)(?::([^}]*))?\}"
+            # Match only innermost (non-nested) ${VAR} / ${VAR:default} so that
+            # nested defaults like ${VAR:prefix-${OTHER}} are handled correctly.
+            pattern = r"\$\{([^${}:]+)(?::([^${}]*))?\}"
             for match in re.finditer(pattern, value):
                 var_name = match.group(1)
                 has_default = match.group(2) is not None
@@ -107,8 +109,13 @@ def substitute_env_vars(
     elif isinstance(data, list):
         return [substitute_env_vars(item, resolve_aws_pseudo_vars) for item in data]
     elif isinstance(data, str):
-        # Pattern to match ${VAR_NAME} or ${VAR_NAME:default_value}
-        pattern = r"\$\{([^}:]+)(?::([^}]*))?\}"
+        # Pattern to match a single, non-nested ${VAR_NAME} or
+        # ${VAR_NAME:default_value}. Excluding "$", "{" and "}" from the name
+        # and default character classes ensures we only match the innermost
+        # placeholder, so nested defaults such as
+        # ${VAR:prefix-${OTHER}} resolve correctly across repeated passes
+        # (inner -> outer) instead of leaving a dangling "}".
+        pattern = r"\$\{([^${}:]+)(?::([^${}]*))?\}"
 
         def replace_var(match):
             var_name = match.group(1)
@@ -153,7 +160,15 @@ def substitute_env_vars(
                     f"Variable ${{{var_name}}} is not set and has no default value"
                 )
 
-        return re.sub(pattern, replace_var, data)
+        # Resolve iteratively so nested placeholders (e.g. a default that
+        # itself references another variable) are fully expanded inner -> outer.
+        result = data
+        for _ in range(25):
+            new_result = re.sub(pattern, replace_var, result)
+            if new_result == result:
+                break
+            result = new_result
+        return result
     else:
         return data
 
