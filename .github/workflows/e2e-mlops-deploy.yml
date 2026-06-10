@@ -5,6 +5,11 @@
 # Drives the same `deploy_pipeline` DAG used by the promote workflow but
 # without manual approval gates, smoke tests, or log capture.
 #
+# Optionally provisions the per-stage MLOps supporting infrastructure first
+# (EventBridge rule + Lambda that dispatches the promote workflow on model
+# approval) by setting `setup_infra: true`. This wraps the idempotent
+# `scripts/setup-mlops-infra.sh`, so re-running against a stage is safe.
+#
 # Use this for ad-hoc redeploys / debugging. Event-driven promotion (kicked
 # off by SageMaker model approval) lives in `e2e-mlops-promote.yml`, which
 # owns the `repository_dispatch: [model-approved]` trigger.
@@ -25,6 +30,16 @@ on:
         description: "Override model package ARN (default: latest Approved)"
         required: false
         default: ""
+        type: string
+      setup_infra:
+        description: "Provision MLOps infra (EventBridge + Lambda deploy trigger) before deploying"
+        required: false
+        default: false
+        type: boolean
+      github_repo:
+        description: "GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into"
+        required: false
+        default: "velpualvi/blog-smus-ops"
         type: string
 
 permissions:
@@ -107,6 +122,43 @@ jobs:
             echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
             echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
           } >> $GITHUB_ENV
+
+      - name: Verify GitHub PAT secret exists
+        # Only needed when provisioning infra. Fail fast with a clear message
+        # if the operator forgot to create the GitHub PAT secret. Without it
+        # the Lambda would deploy fine but silently fail to dispatch on every
+        # model approval.
+        if: ${{ inputs.setup_infra }}
+        shell: bash
+        run: |
+          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+          SECRET_ID="bank-mktg/github-token"
+          if ! aws secretsmanager describe-secret --secret-id "$SECRET_ID" --region "$REGION" >/dev/null 2>&1; then
+            echo "::error::Secret '$SECRET_ID' not found in region $REGION."
+            echo "::error::Create it with:"
+            echo "::error::  aws secretsmanager create-secret --name $SECRET_ID --secret-string <PAT> --region $REGION"
+            exit 1
+          fi
+          echo "✓ Found secret $SECRET_ID"
+
+      - name: Provision MLOps infra (${{ matrix.stage }})
+        # Idempotent: EventBridge rule + Lambda deploy trigger + IAM role.
+        # The assumed project role already has the IAM/Lambda/EventBridge perms.
+        if: ${{ inputs.setup_infra }}
+        shell: bash
+        env:
+          GITHUB_REPO: ${{ inputs.github_repo }}
+        run: |
+          PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', matrix.stage) }}"
+          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+
+          echo "::group::🚧 Provisioning MLOps infra for ${{ matrix.stage }}"
+          bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
+            "${{ matrix.stage }}" \
+            "${{ vars.AWS_ACCOUNT_ID }}" \
+            "$REGION" \
+            "$PROJECT_NAME"
+          echo "::endgroup::"
 
       - name: Set manifest substitution env
         # SMUS CLI rejects unresolved substitutions in the manifest. Set sentinels
