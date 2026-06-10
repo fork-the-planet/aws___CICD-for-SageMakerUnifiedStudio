@@ -17,10 +17,31 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  # Deploy progresses dev -> test -> prod. Each stage runs in its own GitHub
+  # Environment (set via test_target) so OIDC role + vars resolve per stage,
+  # and any required reviewers configured on `test`/`prod` gate promotion.
+  deploy-dev:
     uses: ./.github/workflows/smus-e2e-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
       test_target: 'dev'
+      setup_mlflow: true
+      skip_tests: true
+
+  deploy-test:
+    needs: deploy-dev
+    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
+    with:
+      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
+      test_target: 'test'
+      setup_mlflow: true
+      skip_tests: true
+
+  deploy-prod:
+    needs: deploy-test
+    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
+    with:
+      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
+      test_target: 'prod'
       setup_mlflow: true
       skip_tests: true
