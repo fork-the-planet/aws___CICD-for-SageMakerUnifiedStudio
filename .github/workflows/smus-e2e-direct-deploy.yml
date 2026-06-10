@@ -33,6 +33,18 @@ on:
         type: boolean
         default: false
 
+      setup_infra:
+        description: 'Provision MLOps infra (EventBridge + Lambda deploy trigger) before deploying'
+        required: false
+        type: boolean
+        default: false
+
+      github_repo:
+        description: 'GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into'
+        required: false
+        type: string
+        default: ''
+
 permissions:
   id-token: write
   contents: read
@@ -89,6 +101,32 @@ jobs:
             echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
             echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
           } >> $GITHUB_ENV
+
+      - name: Provision MLOps infra
+        # Idempotent: EventBridge rule + Lambda deploy trigger + IAM role.
+        # The assumed project role already has the IAM/Lambda/EventBridge perms.
+        if: ${{ inputs.setup_infra }}
+        shell: bash
+        env:
+          GITHUB_REPO: ${{ inputs.github_repo }}
+        run: |
+          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+          PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', inputs.test_target) }}"
+          SECRET_ID="bank-mktg/github-token"
+
+          if ! aws secretsmanager describe-secret --secret-id "$SECRET_ID" --region "$REGION" >/dev/null 2>&1; then
+            echo "::error::Secret '$SECRET_ID' not found in region $REGION."
+            echo "::error::Create it with: aws secretsmanager create-secret --name $SECRET_ID --secret-string <PAT> --region $REGION"
+            exit 1
+          fi
+
+          echo "::group::🚧 Provisioning MLOps infra for ${{ inputs.test_target }}"
+          bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
+            "${{ inputs.test_target }}" \
+            "${{ steps.aws-account.outputs.account-id }}" \
+            "$REGION" \
+            "$PROJECT_NAME"
+          echo "::endgroup::"
 
       - name: Setup MLflow Tracking Server
         id: mlflow-setup
