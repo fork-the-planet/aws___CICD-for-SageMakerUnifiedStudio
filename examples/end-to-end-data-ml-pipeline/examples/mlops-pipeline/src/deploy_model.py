@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = "/opt/ml/processing/output"
 
+# Sentinel value used by the promote/deploy GitHub workflows when an optional
+# CLI flag is unset. Translates to "no override" for ARN/URL pinning.
+SENTINEL_NONE = "none"
+
+
+def _clean(value: str) -> str:
+    """Return value unless it's empty/whitespace or the 'none' sentinel."""
+    if not value:
+        return ""
+    stripped = value.strip()
+    if not stripped or stripped.lower() == SENTINEL_NONE:
+        return ""
+    return stripped
+
 
 # =============================================================================
 # Argument Parsing
@@ -51,6 +65,28 @@ def parse_args():
     parser.add_argument("--instance-count", type=int, default=1)
     parser.add_argument("--tracking-server-arn", default="")
     parser.add_argument("--experiment-name", default="")
+    # When the promote workflow pins a specific approved model version, it
+    # passes the ARN here. Sentinel "none" (or empty) means fall back to
+    # "latest approved in the registry".
+    parser.add_argument(
+        "--model-package-arn",
+        default="",
+        help="Pin a specific model package ARN. Use 'none' or omit to pick latest Approved.",
+    )
+    # When the promote workflow stages the model artifact into a stage-local
+    # bucket, it passes the staged S3 URL here so the new SageMaker Model is
+    # built off the staged copy instead of the source bucket. Sentinel "none"
+    # (or empty) means use whatever ModelDataUrl is on the package.
+    parser.add_argument(
+        "--model-data-url-override",
+        default="",
+        help="Override ModelDataUrl. Use 'none' or omit to use the package's URL.",
+    )
+    parser.add_argument(
+        "--git-commit",
+        default="",
+        help="Workflow git SHA, recorded on the deployment report for traceability.",
+    )
     return parser.parse_args()
 
 
@@ -93,6 +129,27 @@ def find_approved_model_package(sm, model_package_group):
     logger.info(f"  Version:     {details.get('ModelPackageVersion', 'N/A')}")
     logger.info(f"  Created:     {details.get('CreationTime', 'N/A')}")
     logger.info(f"  Description: {details.get('ModelPackageDescription', 'N/A')}")
+    return details
+
+
+def describe_pinned_model_package(sm, model_package_arn):
+    """Look up a specific (pinned) model package by ARN.
+
+    Used when the promote workflow has pinned the version that flows through
+    every stage. We still verify it's Approved so we don't accidentally
+    deploy something that was rejected after the cascade started.
+    """
+    logger.info(f"Looking up pinned model package: {model_package_arn}")
+    details = sm.describe_model_package(ModelPackageName=model_package_arn)
+    status = details.get("ModelApprovalStatus", "")
+    logger.info(f"  Version : {details.get('ModelPackageVersion', 'N/A')}")
+    logger.info(f"  Created : {details.get('CreationTime', 'N/A')}")
+    logger.info(f"  Approval: {status}")
+    if status != "Approved":
+        raise ValueError(
+            f"Pinned model package {model_package_arn} has status '{status}', "
+            "expected 'Approved'. Refusing to deploy."
+        )
     return details
 
 
@@ -255,13 +312,21 @@ def main():
     logger.info(f"  Instance Count      : {args.instance_count}")
     logger.info(f"  MLflow Server       : {args.tracking_server_arn or 'not configured'}")
     logger.info(f"  Experiment          : {args.experiment_name or 'not configured'}")
+    logger.info(f"  Pinned Pkg ARN      : {_clean(args.model_package_arn) or '<latest approved>'}")
+    logger.info(f"  Data URL Override   : {_clean(args.model_data_url_override) or '<from package>'}")
+    logger.info(f"  Git Commit          : {_clean(args.git_commit) or '<unset>'}")
     logger.info("=" * 60)
 
     sm = boto3.client("sagemaker", region_name=args.region)
 
-    # Step 1: Find approved model
-    logger.info("[1/5] Searching for approved model in registry")
-    model_package = find_approved_model_package(sm, args.model_package_group)
+    # Step 1: Find or look up the model
+    pinned_arn = _clean(args.model_package_arn)
+    if pinned_arn:
+        logger.info("[1/5] Using pinned model package from promote workflow")
+        model_package = describe_pinned_model_package(sm, pinned_arn)
+    else:
+        logger.info("[1/5] Searching for latest Approved model in registry")
+        model_package = find_approved_model_package(sm, args.model_package_group)
 
     if model_package is None:
         logger.info("=" * 60)
@@ -276,12 +341,20 @@ def main():
             "reason": "No approved model versions found",
             "model_package_group": args.model_package_group,
             "endpoint_name": args.endpoint_name,
+            "git_commit": _clean(args.git_commit),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         return
 
     model_package_arn = model_package["ModelPackageArn"]
     model_data_url = extract_model_data_url(model_package)
+    data_url_override = _clean(args.model_data_url_override)
+    if data_url_override:
+        logger.info(
+            f"  Overriding ModelDataUrl with staged copy: "
+            f"{model_data_url} -> {data_url_override}"
+        )
+        model_data_url = data_url_override
     logger.info(f"  Model data: {model_data_url}")
 
     # Step 2: Create SageMaker Model
@@ -301,11 +374,13 @@ def main():
         "model_package_group": args.model_package_group,
         "model_name": model_name,
         "model_data_url": model_data_url,
+        "model_data_url_overridden": bool(data_url_override),
         "endpoint_name": args.endpoint_name,
         "endpoint_arn": endpoint_info.get("EndpointArn"),
         "endpoint_status": endpoint_info.get("EndpointStatus"),
         "instance_type": args.instance_type,
         "instance_count": args.instance_count,
+        "git_commit": _clean(args.git_commit),
         "deployed_at": datetime.now(timezone.utc).isoformat(),
     })
 

@@ -54,6 +54,15 @@ deploy_pipeline:
             - "{proj.connection.mlflow-tracking.trackingServerArn}"
             - "--experiment-name"
             - "bank-mktg-experiments"
+            # Promotion overrides — passed by the GitHub workflow via env
+            # substitution. "none" sentinel means "no override" (i.e. fall
+            # back to latest-Approved / package's own ModelDataUrl).
+            - "--model-package-arn"
+            - "{env.MODEL_PACKAGE_ARN}"
+            - "--model-data-url-override"
+            - "{env.MODEL_DATA_URL_OVERRIDE}"
+            - "--git-commit"
+            - "{env.GIT_COMMIT}"
         ProcessingInputs:
           - InputName: source
             S3Input:

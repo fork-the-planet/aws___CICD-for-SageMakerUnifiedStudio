@@ -7,12 +7,13 @@
   "time": "2026-05-12T22:00:00Z",
   "region": "us-east-1",
   "resources": [
-    "arn:aws:sagemaker:us-east-1:973414239152:model-package/bank-mktg-prediction-models/1"
+    "arn:aws:sagemaker:us-east-1:973414239152:model-package/bank-mktg-prediction-models/6"
   ],
   "detail": {
     "ModelPackageGroupName": "bank-mktg-prediction-models",
-    "ModelPackageArn": "arn:aws:sagemaker:us-east-1:973414239152:model-package/bank-mktg-prediction-models/1",
-    "ModelPackageVersion": 1,
-    "ModelApprovalStatus": "Approved"
+    "ModelPackageArn": "arn:aws:sagemaker:us-east-1:973414239152:model-package/bank-mktg-prediction-models/6",
+    "ModelPackageVersion": 6,
+    "ModelApprovalStatus": "Approved",
+    "previousModelApprovalStatus": "PendingManualApproval"
   }
 }

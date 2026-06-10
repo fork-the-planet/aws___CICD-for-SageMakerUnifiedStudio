@@ -262,7 +262,7 @@ cat > "$LAMBDA_DIR/lambda_function.py" << 'PYEOF'
 
 Triggered by EventBridge when a model is approved in the registry.
 Sends a repository_dispatch event to GitHub Actions which then triggers
-the deploy_pipeline DAG via aws-smus-cicd-cli.
+the dev -> test -> prod promotion cascade (mlops-promote.yml).
 
 Environment Variables:
   GITHUB_TOKEN_SECRET_ARN - Secrets Manager ARN for GitHub PAT
@@ -293,10 +293,24 @@ def handler(event, context):
 
     detail = event.get("detail", {})
     approval_status = detail.get("ModelApprovalStatus", "")
+    previous_status = detail.get("previousModelApprovalStatus", "")
 
     if approval_status != "Approved":
         logger.info(f"Ignoring non-approval event: {approval_status}")
         return {"statusCode": 200, "body": "Skipped - not an approval"}
+
+    # Belt-and-suspenders against the EventBridge re-fire loop. The promotion
+    # workflow updates CustomerMetadataProperties on the package after each
+    # successful deploy, which emits a new "Model Package State Change" event
+    # with ModelApprovalStatus=Approved. The EventBridge rule already filters
+    # on previousModelApprovalStatus != Approved; this is the same check in
+    # the Lambda so a misconfigured rule can't cause a runaway cascade.
+    if previous_status == "Approved":
+        logger.info(
+            "Ignoring re-approval event (previous status was already "
+            "Approved - likely a metadata update, not a real approval)."
+        )
+        return {"statusCode": 200, "body": "Skipped - re-approval"}
 
     # Configuration
     github_repo = os.environ.get("GITHUB_REPO", "")
@@ -406,6 +420,16 @@ EVENT_PATTERN=$(cat <<EOF
 }
 EOF
 )
+# Note: previously this also required previousModelApprovalStatus != "Approved"
+# at the rule level. SageMaker omits previousModelApprovalStatus from some
+# state-change events (notably API-driven update-model-package calls), and
+# EventBridge's content filter rejects events where the required field is
+# missing - so user approvals were silently dropped.
+#
+# The Lambda handler still rejects re-approval events on its own
+# (`if previous_status == "Approved": skip`) so the loop protection is kept.
+# The rule is intentionally permissive: match every approval event, let the
+# Lambda decide whether to dispatch.
 
 aws events put-rule \
   --name "$RULE_NAME" \
@@ -447,7 +471,8 @@ echo "║    GitHub:    $GITHUB_REPO"
 echo "║                                                          ║"
 echo "║  Flow:                                                   ║"
 echo "║    Model approved → EventBridge → Lambda                 ║"
-echo "║    → GitHub Actions → deploy_pipeline DAG → Endpoint     ║"
+echo "║    → GitHub Actions (mlops-promote.yml)                  ║"
+echo "║    → dev → test → prod cascade with manual gates         ║"
 echo "║                                                          ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
@@ -458,5 +483,5 @@ echo "       --name bank-mktg/github-token \\"
 echo "       --secret-string 'ghp_your_token_here'"
 echo ""
 echo "Next steps:"
-echo "  cd examples/mlops-pipeline"
+echo "  cd examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline"
 echo "  aws-smus-cicd-cli deploy --manifest manifest.yaml --targets $ENV"
