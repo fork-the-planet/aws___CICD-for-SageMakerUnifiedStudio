@@ -2,8 +2,8 @@
 # =============================================================================
 # MLOps Infrastructure Setup
 # =============================================================================
-# One-time setup script that provisions all infrastructure needed for the
-# MLOps pipeline: MLflow tracking server + event-based deploy trigger.
+# One-time setup script that provisions the infrastructure needed for the
+# MLOps pipeline: event-based deploy trigger.
 #
 # Usage:
 #   ./scripts/setup-mlops-infra.sh <dev|test|prod> <account-id> <region> <project-name>
@@ -13,8 +13,7 @@
 #   ./scripts/setup-mlops-infra.sh prod 987654321098 us-west-2 bank-mktg-prod
 #
 # What it creates:
-#   1. MLflow Tracking Server (uses project S3 bucket, IAM role, SageMaker tracking server)
-#   2. Deploy Trigger (Lambda function, EventBridge rule, IAM role)
+#   1. Deploy Trigger (Lambda function, EventBridge rule, IAM role)
 #
 # Prerequisites:
 #   - AWS credentials for the target account
@@ -47,143 +46,7 @@ if [ "$CURRENT_ACCOUNT" != "$ACCOUNT_ID" ]; then
 fi
 
 # =============================================================================
-# PART 1: MLflow Tracking Server
-# =============================================================================
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  MLflow Tracking Server"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-SERVER_NAME="${PROJECT_NAME}"
-
-# Use the project's existing S3 bucket for MLflow artifacts
-# The project bucket is created by SageMaker Unified Studio: amazon-sagemaker-<account>-<region>-<suffix>
-echo ""
-echo "[1.1] Discovering project S3 bucket..."
-BUCKET_NAME=$(aws s3 ls | grep "amazon-sagemaker-${ACCOUNT_ID}-${REGION}" | awk '{print $3}' | head -1)
-
-if [ -z "$BUCKET_NAME" ]; then
-  echo "  ERROR: Could not find project bucket matching amazon-sagemaker-${ACCOUNT_ID}-${REGION}-*"
-  echo "  Make sure the project has been created in SageMaker Unified Studio first."
-  exit 1
-fi
-
-ARTIFACT_PREFIX="shared/bank-mktg/mlflow-artifacts"
-echo "  Found bucket: $BUCKET_NAME"
-echo "  Artifact path: s3://${BUCKET_NAME}/${ARTIFACT_PREFIX}"
-
-# Step 1.2: Create IAM role for MLflow tracking server
-MLFLOW_ROLE_NAME="MLflowTrackingServerRole-${PROJECT_NAME}"
-echo "[1.2] Creating IAM role: $MLFLOW_ROLE_NAME..."
-
-TRUST_POLICY=$(cat <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": {"Service": "sagemaker.amazonaws.com"},
-    "Action": "sts:AssumeRole"
-  }]
-}
-EOF
-)
-
-if aws iam get-role --role-name "$MLFLOW_ROLE_NAME" &>/dev/null; then
-  echo "  Role already exists, skipping."
-else
-  aws iam create-role \
-    --role-name "$MLFLOW_ROLE_NAME" \
-    --assume-role-policy-document "$TRUST_POLICY" \
-    --description "MLflow tracking server role for $ENV" \
-    --output text --query 'Role.Arn' > /dev/null
-  echo "  Role created."
-fi
-
-# Attach S3 and KMS access policy for the project bucket
-POLICY_NAME="MLflowS3Access-${PROJECT_NAME}"
-S3_POLICY=$(cat <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "S3ArtifactAccess",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject", "s3:PutObject", "s3:DeleteObject",
-        "s3:ListBucket", "s3:GetBucketLocation",
-        "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"
-      ],
-      "Resource": [
-        "arn:aws:s3:::${BUCKET_NAME}",
-        "arn:aws:s3:::${BUCKET_NAME}/*"
-      ]
-    },
-    {
-      "Sid": "KMSAccess",
-      "Effect": "Allow",
-      "Action": ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {"kms:ViaService": "s3.${REGION}.amazonaws.com"}
-      }
-    }
-  ]
-}
-EOF
-)
-
-echo "[1.3] Attaching S3/KMS policy..."
-aws iam put-role-policy \
-  --role-name "$MLFLOW_ROLE_NAME" \
-  --policy-name "$POLICY_NAME" \
-  --policy-document "$S3_POLICY"
-echo "  Policy attached."
-
-echo "  Waiting for IAM role propagation..."
-sleep 10
-
-MLFLOW_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${MLFLOW_ROLE_NAME}"
-
-# Step 1.3: Create MLflow tracking server
-echo "[1.4] Creating MLflow tracking server: $SERVER_NAME..."
-
-if SERVER_ARN=$(aws sagemaker describe-mlflow-tracking-server \
-  --tracking-server-name "$SERVER_NAME" \
-  --query 'TrackingServerArn' --output text 2>/dev/null); then
-  echo "  Tracking server already exists."
-else
-  SERVER_ARN=$(aws sagemaker create-mlflow-tracking-server \
-    --tracking-server-name "$SERVER_NAME" \
-    --artifact-store-uri "s3://${BUCKET_NAME}/${ARTIFACT_PREFIX}" \
-    --role-arn "$MLFLOW_ROLE_ARN" \
-    --tracking-server-size "Small" \
-    --query 'TrackingServerArn' --output text 2>&1) || {
-      if echo "$SERVER_ARN" | grep -q "already exists"; then
-        echo "  Tracking server already exists (created concurrently)."
-        SERVER_ARN=$(aws sagemaker describe-mlflow-tracking-server \
-          --tracking-server-name "$SERVER_NAME" \
-          --query 'TrackingServerArn' --output text)
-      else
-        echo "ERROR: Failed to create tracking server: $SERVER_ARN"
-        exit 1
-      fi
-    }
-
-  if [ $? -eq 0 ] && ! echo "$SERVER_ARN" | grep -q "already exists"; then
-    echo "  Tracking server creating... waiting for it to become active."
-    aws sagemaker wait mlflow-tracking-server-active \
-      --tracking-server-name "$SERVER_NAME" 2>/dev/null || \
-    echo "  (Waiter not available — check status manually)"
-  fi
-fi
-
-echo ""
-echo "  ✓ MLflow Server: $SERVER_NAME"
-echo "  ✓ Server ARN:    $SERVER_ARN"
-echo "  ✓ Artifacts:     s3://${BUCKET_NAME}/${ARTIFACT_PREFIX}"
-
-# =============================================================================
-# PART 2: Event-Based Deploy Trigger
+# PART 1: Event-Based Deploy Trigger
 # =============================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -195,9 +58,9 @@ RULE_NAME="bank-mktg-model-approved"
 LAMBDA_ROLE_NAME="bank-mktg-airflow-deploy-trigger-role"
 MODEL_PACKAGE_GROUP="bank-mktg-prediction-models"
 
-# Step 2.1: Create Lambda execution role
+# Step 1.1: Create Lambda execution role
 echo ""
-echo "[2.1] Lambda execution role: $LAMBDA_ROLE_NAME..."
+echo "[1.1] Lambda execution role: $LAMBDA_ROLE_NAME..."
 
 LAMBDA_TRUST=$(cat <<EOF
 {
@@ -253,8 +116,8 @@ sleep 10
 
 LAMBDA_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${LAMBDA_ROLE_NAME}"
 
-# Step 2.2: Create Lambda function
-echo "[2.2] Lambda function: $FUNCTION_NAME..."
+# Step 1.2: Create Lambda function
+echo "[1.2] Lambda function: $FUNCTION_NAME..."
 
 LAMBDA_DIR=$(mktemp -d)
 cat > "$LAMBDA_DIR/lambda_function.py" << 'PYEOF'
@@ -406,8 +269,8 @@ rm -rf "$LAMBDA_DIR"
 
 LAMBDA_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${FUNCTION_NAME}"
 
-# Step 2.3: EventBridge rule
-echo "[2.3] EventBridge rule: $RULE_NAME..."
+# Step 1.3: EventBridge rule
+echo "[1.3] EventBridge rule: $RULE_NAME..."
 
 EVENT_PATTERN=$(cat <<EOF
 {
@@ -458,11 +321,6 @@ echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║  Setup Complete                                          ║"
 echo "╠══════════════════════════════════════════════════════════╣"
-echo "║                                                          ║"
-echo "║  MLflow Tracking Server                                  ║"
-echo "║    Server:    $SERVER_NAME"
-echo "║    ARN:       $SERVER_ARN"
-echo "║    Artifacts: s3://${BUCKET_NAME}/${ARTIFACT_PREFIX}"
 echo "║                                                          ║"
 echo "║  Deploy Trigger                                          ║"
 echo "║    Rule:      $RULE_NAME"
