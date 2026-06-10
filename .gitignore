@@ -172,3 +172,7 @@ to-delete/
 # Coverage artifacts
 coverage-artifacts/
 coverage-combined/
+
+# MLOps training source bundle is built at deploy time (see
+# scripts/build-mlops-sourcedir.sh, run by the deploy workflow), not committed.
+examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz

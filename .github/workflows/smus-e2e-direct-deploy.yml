@@ -39,6 +39,12 @@ on:
         type: boolean
         default: false
 
+      prebuild_script:
+        description: 'Optional path to a script to run before deploy (e.g. build sourcedir.tar.gz)'
+        required: false
+        type: string
+        default: ''
+
       github_repo:
         description: "GitHub repo (owner/repo) the deploy-trigger Lambda dispatches into (defaults to this repo)"
         required: false
@@ -171,6 +177,16 @@ jobs:
             echo "   ARN: $MLFLOW_ARN"
             echo "tracking-server-name=$TRACKING_SERVER_NAME" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build source bundle (prebuild)
+        # Optional example-specific build step (e.g. package train script +
+        # requirements.txt into sourcedir.tar.gz) so the bundle uploaded by
+        # the deploy below is always in sync with the committed source files.
+        if: ${{ inputs.prebuild_script != '' }}
+        shell: bash
+        run: |
+          echo "🔧 Running prebuild script: ${{ inputs.prebuild_script }}"
+          bash "${{ inputs.prebuild_script }}"
 
       - name: aws-smus-cicd-cli deploy
         env:

@@ -33,6 +33,9 @@ jobs:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
       test_target: ${{ inputs.environment || 'dev' }}
       setup_mlflow: true
+      # Rebuild the training sourcedir.tar.gz (train script + requirements.txt)
+      # before deploy so the uploaded bundle is always in sync.
+      prebuild_script: 'examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh'
       # Infra (EventBridge + Lambda deploy trigger) only belongs in dev:
       # model approval happens in dev's registry and all stages share one
       # account, so the trigger is a single account-scoped resource.
