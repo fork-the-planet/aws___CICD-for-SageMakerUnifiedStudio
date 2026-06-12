@@ -19,33 +19,22 @@
 #     deploy processing job to a workflow artifact so postmortems don't need
 #     shell access.
 #   - GitHub Environments per stage (dev/test/prod) for OIDC roles, vars,
-#     and (on GitHub Pro/Team) required reviewers. On Free + private repos
-#     we instead use trstringer/manual-approval@v1 to gate test and prod
-#     via Issue comments, which works on any plan.
+#     and native required reviewers (the approval gate).
 #
 # Flow:
 #   prepare       : pick the latest Approved model package ARN once
 #   deploy-dev    : describe -> run DAG -> monitor -> status check -> smoke
-#   approve-test  : open issue, wait for "approved" comment from approver
-#   deploy-test   : same shape as deploy-dev, gated by approve-test
-#   approve-prod  : open issue, wait for "approved" comment from approver
-#   deploy-prod   : same shape, gated by approve-prod
+#   deploy-test   : same shape, gated by `test` environment required reviewers
+#   deploy-prod   : same shape, gated by `prod` environment required reviewers
 #
-# Manual approval gates:
-#   The approve-test and approve-prod jobs use trstringer/manual-approval
-#   to open a GitHub Issue and pause until an approver replies "approved".
-#   Approver IDs come from (in order):
-#     1. `inputs.approvers_override` (workflow_dispatch one-off)
-#     2. `vars.TEST_APPROVERS` / `vars.PROD_APPROVERS` (configured in repo
-#        or environment Settings → Variables; comma-separated GitHub
-#        usernames or org/team handles)
-#     3. `github.repository_owner` (sane default for fresh repos)
-#   Issue is automatically closed when the workflow continues.
-#
-#   The `environment:` keys on deploy-test/deploy-prod are kept for
-#   forward-compat: if you upgrade to GitHub Pro/Team you can layer
-#   native required-reviewers on top of the comment-based gate by
-#   configuring them in repo Settings -> Environments.
+# Approval gates:
+#   deploy-test and deploy-prod declare `environment: test` / `environment:
+#   prod`. Configure required reviewers on those environments in repo
+#   Settings -> Environments (or via the API). GitHub pauses the job until a
+#   required reviewer approves the deployment — native, audited, and with no
+#   third-party action or `issues:` permission. To require a different
+#   reviewer set for prod (e.g. release managers / compliance), edit the prod
+#   environment's reviewers.
 #
 # Trigger: workflow_dispatch (choose start stage).
 #
@@ -77,11 +66,6 @@ on:
         required: false
         default: ""
         type: string
-      approvers_override:
-        description: "Comma-separated approvers for this run (overrides vars.TEST_APPROVERS / vars.PROD_APPROVERS)"
-        required: false
-        default: ""
-        type: string
 
   # Event-driven trigger from the Lambda set up by
   # examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh.
@@ -106,9 +90,6 @@ on:
 permissions:
   id-token: write
   contents: read
-  # Needed by trstringer/manual-approval so it can create an Issue for
-  # each approval gate and read comments on it.
-  issues: write
 
 env:
   WORKFLOW_NAME: deploy_pipeline
@@ -382,14 +363,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # ── APPROVE → TEST ─────────────────────────────────────────────────────────
-  # Free-plan-friendly manual approval. Opens a GitHub Issue and waits for
-  # an "approved" comment from the listed approver(s). On private repos this
-  # avoids the GitHub Pro requirement for environment-level required
-  # reviewers. Runs only when the cascade is actually going to deploy to
-  # test (start_at <= test and dev succeeded, or start_at == test).
-  approve-test:
-    name: Approve TEST deploy
+  # ── TEST ───────────────────────────────────────────────────────────────────
+  # Approval gate: native GitHub Environment required reviewers on the `test`
+  # environment (configured in repo Settings → Environments). The job pauses
+  # until a required reviewer approves the deployment — no third-party action
+  # or Issues permission needed.
+  deploy-test:
+    name: Deploy to TEST
     needs: [prepare, deploy-dev]
     if: |
       always() &&
@@ -399,45 +379,6 @@ jobs:
         needs.prepare.outputs.start_at == 'test'
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ github.TOKEN }}
-          # Approvers come from (in order): workflow_dispatch override input,
-          # vars.TEST_APPROVERS, then the repo owner as a sane fallback so
-          # the workflow can still run on a fresh repo without setup.
-          approvers: ${{ inputs.approvers_override || vars.TEST_APPROVERS || github.repository_owner }}
-          minimum-approvals: 1
-          issue-title: "Approve TEST deploy of model package v${{ needs.prepare.outputs.model_package_version }}"
-          issue-body: |
-            Promotion run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            is waiting to deploy the following model to **test**:
-
-            - Model package ARN: `${{ needs.prepare.outputs.model_package_arn }}`
-            - Version: `${{ needs.prepare.outputs.model_package_version }}`
-            - Staged URL (test): `${{ needs.prepare.outputs.staged_url_test }}`
-
-            Reply with `approved` to continue, or `denied` to cancel.
-          exclude-workflow-initiator-as-approver: false
-
-  # ── TEST ───────────────────────────────────────────────────────────────────
-  deploy-test:
-    name: Deploy to TEST
-    needs: [prepare, deploy-dev, approve-test]
-    if: |
-      always() &&
-      needs.prepare.result == 'success' &&
-      needs.approve-test.result == 'success' &&
-      (
-        (needs.prepare.outputs.start_at == 'dev' && needs.deploy-dev.result == 'success') ||
-        needs.prepare.outputs.start_at == 'test'
-      )
-    runs-on: ubuntu-latest
-    # Manual approval gate: see approve-test job above. The `environment:
-    # test` key here is still useful if you later upgrade to GitHub Pro and
-    # want to add the native required-reviewers check on top of the
-    # comment-based gate.
     environment: test
     env:
       STAGE: test
@@ -555,12 +496,12 @@ jobs:
           retention-days: 14
 
   # ── PROD ───────────────────────────────────────────────────────────────────
-  # ── APPROVE → PROD ─────────────────────────────────────────────────────────
-  # Stricter gate than test - this is the production endpoint. Same Issue-
-  # comment pattern, ideally a different reviewer set in real teams (release
-  # manager / compliance). For the demo we keep the same approver.
-  approve-prod:
-    name: Approve PROD deploy
+  # Approval gate: native GitHub Environment required reviewers on the `prod`
+  # environment (configured in repo Settings → Environments). Use a stricter
+  # reviewer set than test (e.g. release managers / compliance) by editing the
+  # prod environment's required reviewers.
+  deploy-prod:
+    name: Deploy to PROD
     needs: [prepare, deploy-test]
     if: |
       always() &&
@@ -570,48 +511,6 @@ jobs:
         needs.prepare.outputs.start_at == 'prod'
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ github.TOKEN }}
-          # Approvers come from (in order): workflow_dispatch override input,
-          # vars.PROD_APPROVERS, then the repo owner as a sane fallback.
-          # Use vars.PROD_APPROVERS to require a different reviewer set than
-          # test (e.g. release managers / compliance).
-          approvers: ${{ inputs.approvers_override || vars.PROD_APPROVERS || github.repository_owner }}
-          minimum-approvals: 1
-          issue-title: "Approve PROD deploy of model package v${{ needs.prepare.outputs.model_package_version }}"
-          issue-body: |
-            ⚠️ **Production deploy approval required**
-
-            Promotion run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            has finished test and is waiting to deploy to **prod**:
-
-            - Model package ARN: `${{ needs.prepare.outputs.model_package_arn }}`
-            - Version: `${{ needs.prepare.outputs.model_package_version }}`
-            - Staged URL (prod): `${{ needs.prepare.outputs.staged_url_prod }}`
-
-            Confirm test smoke checks were green before approving.
-
-            Reply with `approved` to continue, or `denied` to cancel.
-          exclude-workflow-initiator-as-approver: false
-
-  deploy-prod:
-    name: Deploy to PROD
-    needs: [prepare, deploy-test, approve-prod]
-    if: |
-      always() &&
-      needs.prepare.result == 'success' &&
-      needs.approve-prod.result == 'success' &&
-      (
-        ((needs.prepare.outputs.start_at == 'dev' || needs.prepare.outputs.start_at == 'test') && needs.deploy-test.result == 'success') ||
-        needs.prepare.outputs.start_at == 'prod'
-      )
-    runs-on: ubuntu-latest
-    # Manual approval gate: see approve-prod job above. Keeping the
-    # `environment: prod` key for forward-compat with GitHub Pro's native
-    # required-reviewers feature if you ever upgrade.
     environment: prod
     env:
       STAGE: prod
