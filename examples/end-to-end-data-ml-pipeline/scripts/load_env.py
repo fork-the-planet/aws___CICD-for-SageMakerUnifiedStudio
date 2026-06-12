@@ -65,6 +65,11 @@ def parse_config(config: Path) -> list[tuple[str, str]]:
         prefix = stage.upper()
         for key, val in values.items():
             exports.append((f"{prefix}_{key.upper()}", str(val)))
+            # The manifest references ${<STAGE>_DOMAIN_REGION} for the domain
+            # region, but the config calls it `region`. Export both so manifest
+            # substitution finds <STAGE>_DOMAIN_REGION as well as <STAGE>_REGION.
+            if key.upper() == "REGION":
+                exports.append((f"{prefix}_DOMAIN_REGION", str(val)))
 
     # Also export common aliases expected by manifests
     # Maps: DEV_ACCOUNT_ID → AWS_ACCOUNT_ID, DEV_PROJECT_ROLE → PROJECT_ROLE
