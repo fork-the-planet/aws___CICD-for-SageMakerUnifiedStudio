@@ -162,18 +162,22 @@ def handler(event, context):
         logger.info(f"Ignoring non-approval event: {approval_status}")
         return {"statusCode": 200, "body": "Skipped - not an approval"}
 
-    # Belt-and-suspenders against the EventBridge re-fire loop. The promotion
-    # workflow updates CustomerMetadataProperties on the package after each
-    # successful deploy, which emits a new "Model Package State Change" event
-    # with ModelApprovalStatus=Approved. The EventBridge rule already filters
-    # on previousModelApprovalStatus != Approved; this is the same check in
-    # the Lambda so a misconfigured rule can't cause a runaway cascade.
-    if previous_status == "Approved":
+    # Loop protection. The promotion workflow stamps CustomerMetadataProperties
+    # on the package after each successful deploy, which re-emits a
+    # "Model Package State Change" event with ModelApprovalStatus=Approved.
+    # Crucially, those metadata-update (API-driven) events OMIT
+    # previousModelApprovalStatus, whereas a genuine registry approval carries
+    # it (e.g. "PendingManualApproval"). So only dispatch on a real transition
+    # INTO Approved from a non-Approved previous status; skip when the previous
+    # status is missing (metadata update) or already Approved (re-approval).
+    # Without this, the metadata stamp triggered an infinite promote loop.
+    if not previous_status or previous_status == "Approved":
         logger.info(
-            "Ignoring re-approval event (previous status was already "
-            "Approved - likely a metadata update, not a real approval)."
+            "Ignoring event without a genuine approval transition "
+            f"(previousModelApprovalStatus={previous_status!r}). Likely a "
+            "metadata update or re-approval, not a new approval."
         )
-        return {"statusCode": 200, "body": "Skipped - re-approval"}
+        return {"statusCode": 200, "body": "Skipped - no approval transition"}
 
     # Configuration
     github_repo = os.environ.get("GITHUB_REPO", "")
