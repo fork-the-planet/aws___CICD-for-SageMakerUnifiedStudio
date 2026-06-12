@@ -265,17 +265,25 @@ def log_to_mlflow(tracking_server_arn, experiment_name, model_package_arn, endpo
         logger.warning(f"Could not install/import mlflow: {e}")
         return
 
-    os.environ["MLFLOW_TRACKING_ARN"] = tracking_server_arn
-    mlflow.set_tracking_uri(tracking_server_arn)
-    mlflow.set_experiment(experiment_name)
+    # MLflow logging is best-effort deployment metadata — the endpoint is
+    # already live by this point, so a tracking-server problem (e.g. an
+    # unreachable/misconfigured server ARN) must not fail the deploy job.
+    try:
+        os.environ["MLFLOW_TRACKING_ARN"] = tracking_server_arn
+        mlflow.set_tracking_uri(tracking_server_arn)
+        mlflow.set_experiment(experiment_name)
 
-    with mlflow.start_run(run_name=f"deploy-{endpoint_name}"):
-        mlflow.set_tag("pipeline_step", "deploy_model")
-        mlflow.set_tag("model_package_arn", model_package_arn)
-        mlflow.set_tag("endpoint_name", endpoint_name)
-        mlflow.set_tag("model_name", model_name)
-        mlflow.set_tag("deployment_time", datetime.now(timezone.utc).isoformat())
-    logger.info("Logged deployment to MLflow")
+        with mlflow.start_run(run_name=f"deploy-{endpoint_name}"):
+            mlflow.set_tag("pipeline_step", "deploy_model")
+            mlflow.set_tag("model_package_arn", model_package_arn)
+            mlflow.set_tag("endpoint_name", endpoint_name)
+            mlflow.set_tag("model_name", model_name)
+            mlflow.set_tag("deployment_time", datetime.now(timezone.utc).isoformat())
+        logger.info("Logged deployment to MLflow")
+    except Exception as e:
+        logger.warning(
+            f"MLflow logging failed (non-fatal, endpoint already deployed): {e}"
+        )
 
 
 # =============================================================================
