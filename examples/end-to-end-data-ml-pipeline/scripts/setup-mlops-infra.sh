@@ -156,7 +156,7 @@ def handler(event, context):
 
     detail = event.get("detail", {})
     approval_status = detail.get("ModelApprovalStatus", "")
-    previous_status = detail.get("previousModelApprovalStatus", "")
+    updated_fields = detail.get("UpdatedModelPackageFields", []) or []
 
     if approval_status != "Approved":
         logger.info(f"Ignoring non-approval event: {approval_status}")
@@ -165,19 +165,22 @@ def handler(event, context):
     # Loop protection. The promotion workflow stamps CustomerMetadataProperties
     # on the package after each successful deploy, which re-emits a
     # "Model Package State Change" event with ModelApprovalStatus=Approved.
-    # Crucially, those metadata-update (API-driven) events OMIT
-    # previousModelApprovalStatus, whereas a genuine registry approval carries
-    # it (e.g. "PendingManualApproval"). So only dispatch on a real transition
-    # INTO Approved from a non-Approved previous status; skip when the previous
-    # status is missing (metadata update) or already Approved (re-approval).
-    # Without this, the metadata stamp triggered an infinite promote loop.
-    if not previous_status or previous_status == "Approved":
+    # Those re-emits update ONLY CustomerMetadataProperties, whereas a genuine
+    # approval changes ModelApprovalStatus. SageMaker reports what changed in
+    # UpdatedModelPackageFields, so dispatch on every event that actually
+    # changed the approval status and skip metadata-only stamps. This works
+    # regardless of previousModelApprovalStatus (API/UI approvals omit it), so
+    # every genuine approval triggers the pipeline. If UpdatedModelPackageFields
+    # is absent we err toward dispatching; deploy stamps are update-model-package
+    # calls that always carry ["CustomerMetadataProperties"], so the loop stays
+    # protected.
+    if updated_fields and "ModelApprovalStatus" not in updated_fields:
         logger.info(
-            "Ignoring event without a genuine approval transition "
-            f"(previousModelApprovalStatus={previous_status!r}). Likely a "
-            "metadata update or re-approval, not a new approval."
+            "Ignoring update that did not change approval status "
+            f"(UpdatedModelPackageFields={updated_fields}). Likely a deploy "
+            "metadata stamp, not a new approval."
         )
-        return {"statusCode": 200, "body": "Skipped - no approval transition"}
+        return {"statusCode": 200, "body": "Skipped - approval status unchanged"}
 
     # Configuration
     github_repo = os.environ.get("GITHUB_REPO", "")
@@ -293,10 +296,12 @@ EOF
 # EventBridge's content filter rejects events where the required field is
 # missing - so user approvals were silently dropped.
 #
-# The Lambda handler still rejects re-approval events on its own
-# (`if previous_status == "Approved": skip`) so the loop protection is kept.
-# The rule is intentionally permissive: match every approval event, let the
-# Lambda decide whether to dispatch.
+# The Lambda handler still protects against the deploy-stamp loop on its own:
+# it skips events whose UpdatedModelPackageFields changed only
+# CustomerMetadataProperties (the post-deploy stamp) and dispatches on every
+# event that actually changed ModelApprovalStatus. The rule is intentionally
+# permissive: match every approval event, let the Lambda decide whether to
+# dispatch.
 
 aws events put-rule \
   --name "$RULE_NAME" \
