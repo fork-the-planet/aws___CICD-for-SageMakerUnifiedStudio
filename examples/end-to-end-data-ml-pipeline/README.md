@@ -11,6 +11,61 @@ It includes two production-ready example pipelines that form a data lineage chai
 
 Both pipelines follow the same declarative workflow: define resources in YAML, deploy with one command, orchestrate on MWAA Serverless, and promote across environments (dev → test → prod) without code changes.
 
+## Prerequisites
+
+| Tool | Version | Purpose |
+| ---- | ------- | ------- |
+| Python | 3.11+ | Runtime for CLI and Glue scripts |
+| AWS CLI | v2 | AWS resource management |
+| `aws-smus-cicd-cli` | latest | Pipeline deployment and orchestration |
+| `jq` | any | JSON parsing for shell scripts |
+
+You also need:
+
+- An AWS account with permissions for SageMaker, Glue, Athena, S3, IAM, and MWAA
+- A SageMaker Unified Studio domain and project with MWAA Serverless enabled
+- Environment variables configured for your target environment
+
+```bash
+pip install aws-smus-cicd-cli
+
+export AWS_ACCOUNT_ID=<your-account-id>
+export DEV_DOMAIN_NAME=<your-domain-name>
+export DEV_REGION=<your-region>
+export DEV_PROJECT_NAME=<your-project-name>
+export PROJECT_ROLE=<your-login-role-name>
+```
+
+Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
+
+## CLI Commands
+
+The `aws-smus-cicd-cli` provides the following commands for managing the pipeline lifecycle. See the [CLI Commands Reference](../../docs/cli-commands.md) for full options and examples.
+
+| Command | Purpose |
+| ------- | ------- |
+| `create` | Create a new bundle manifest |
+| `describe` | Validate and show bundle configuration (use `--connect` to pull live AWS info) |
+| `bundle` | Package workflow and storage files from a source environment |
+| `deploy` | Deploy a bundle to a target environment (auto-initializes if needed) |
+| `run` | Trigger a workflow or run an Airflow CLI command |
+| `logs` | Fetch workflow logs from CloudWatch |
+| `monitor` | Monitor workflow status (use `--live` to poll until complete) |
+| `test` | Run tests for pipeline targets |
+| `integrate` | Integrate with external tools (e.g. Q CLI MCP server) |
+| `destroy` | Delete all resources deployed by the manifest |
+
+## Quick Start
+
+```bash
+# Deploy and run the DataOps pipeline
+cd examples/dataops-pipeline
+aws-smus-cicd-cli describe --manifest manifest.yaml --targets dev --connect
+aws-smus-cicd-cli deploy --manifest manifest.yaml --targets dev
+aws-smus-cicd-cli run --manifest manifest.yaml --targets dev --workflow data_pipeline
+aws-smus-cicd-cli monitor --manifest manifest.yaml --targets dev --live
+```
+
 ## Architecture
 
 The system consists of three pipelines that form a data lineage chain with event-driven deployment:
@@ -48,6 +103,16 @@ flowchart TD
     DataOps -->|from_catalog| MLOps
     MLOps -->|model_registry| Deploy
 
+    subgraph Stages[Environment Promotion — same manifest, no code changes]
+        direction LR
+        Dev[dev<br/>bank_mktg_dev]:::input
+        Test[test<br/>bank_mktg_test]:::process
+        Prod[prod<br/>bank_mktg_prod]:::alert
+        Dev -->|promote| Test -->|promote| Prod
+    end
+
+    Deploy -.->|deployed per stage| Stages
+
     classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
@@ -58,6 +123,7 @@ flowchart TD
     style DataOps fill:transparent,stroke:#01579b,stroke-width:2px
     style MLOps fill:transparent,stroke:#7b1fa2,stroke-width:2px
     style Deploy fill:transparent,stroke:#2e7d32,stroke-width:2px
+    style Stages fill:transparent,stroke:#f9a825,stroke-width:2px
 ```
 
 The coupling points:
@@ -66,13 +132,6 @@ The coupling points:
 - **MLOps → Deploy:** SageMaker Model Registry. Training registers models as `PendingManualApproval`. Every approval triggers deployment via EventBridge → Lambda → GitHub Actions → deploy_pipeline DAG.
 
 Stage-prefixed names (`bank_mktg_dev`, `bank-mktg-prediction-dev`) ensure complete namespace isolation across environments.
-
-#### Deploy trigger behavior
-
-The EventBridge rule is intentionally permissive — it matches every `Model Package State Change` event where `ModelApprovalStatus=Approved`, and the Lambda decides whether to dispatch:
-
-- **Every genuine approval triggers the pipeline exactly once**, whether the model is approved from the SageMaker console, the SMUS UI, or the API. The Lambda keys off `UpdatedModelPackageFields` (it dispatches when `ModelApprovalStatus` is among the changed fields), so it does not depend on `previousModelApprovalStatus`, which API- and UI-driven approvals omit.
-- **No infinite loop.** After each deploy, the promote workflow stamps `CustomerMetadataProperties` on the model version, which re-emits an `Approved` event. Those re-emits change only `CustomerMetadataProperties`, so the Lambda skips them instead of kicking off another deploy.
 
 ### Deployment Flow
 
@@ -133,43 +192,12 @@ flowchart TD
 
 The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication with two-hop role assumption (no long-lived credentials).
 
-## Prerequisites
+### Deploy trigger behavior
 
-| Tool | Version | Purpose |
-| ---- | ------- | ------- |
-| Python | 3.11+ | Runtime for CLI and Glue scripts |
-| AWS CLI | v2 | AWS resource management |
-| `aws-smus-cicd-cli` | latest | Pipeline deployment and orchestration |
-| `jq` | any | JSON parsing for shell scripts |
+The EventBridge rule is intentionally permissive — it matches every `Model Package State Change` event where `ModelApprovalStatus=Approved`, and the Lambda decides whether to dispatch:
 
-You also need:
-
-- An AWS account with permissions for SageMaker, Glue, Athena, S3, IAM, and MWAA
-- A SageMaker Unified Studio domain and project with MWAA Serverless enabled
-- Environment variables configured for your target environment
-
-```bash
-pip install aws-smus-cicd-cli
-
-export AWS_ACCOUNT_ID=<your-account-id>
-export DEV_DOMAIN_NAME=<your-domain-name>
-export DEV_REGION=<your-region>
-export DEV_PROJECT_NAME=<your-project-name>
-export PROJECT_ROLE=<your-login-role-name>
-```
-
-Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
-
-## Quick Start
-
-```bash
-# Deploy and run the DataOps pipeline
-cd examples/dataops-pipeline
-aws-smus-cicd-cli describe --manifest manifest.yaml --targets dev --connect
-aws-smus-cicd-cli deploy --manifest manifest.yaml --targets dev
-aws-smus-cicd-cli run --manifest manifest.yaml --targets dev --workflow data_pipeline
-aws-smus-cicd-cli monitor --manifest manifest.yaml --targets dev --live
-```
+- **Every genuine approval triggers the pipeline exactly once**, whether the model is approved from the SageMaker console, the SMUS UI, or the API. The Lambda keys off `UpdatedModelPackageFields` (it dispatches when `ModelApprovalStatus` is among the changed fields), so it does not depend on `previousModelApprovalStatus`, which API- and UI-driven approvals omit.
+- **No infinite loop.** After each deploy, the promote workflow stamps `CustomerMetadataProperties` on the model version, which re-emits an `Approved` event. Those re-emits change only `CustomerMetadataProperties`, so the Lambda skips them instead of kicking off another deploy.
 
 ## Pipelines
 
