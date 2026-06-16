@@ -206,7 +206,8 @@ jobs:
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
           STS_REGION: ${{ vars.AWS_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
-          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.AWS_REGION) || '' }}
+          MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+          MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
         run: |
           echo "🚀 Deploying to target: ${{ inputs.test_target }}"
 
@@ -281,7 +282,8 @@ jobs:
           AWS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
           STS_REGION: ${{ vars.AWS_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
-          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.AWS_REGION) || '' }}
+          MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+          MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
         run: |
           aws-smus-cicd-cli test \
             --manifest ${{ inputs.manifest_path }} \
