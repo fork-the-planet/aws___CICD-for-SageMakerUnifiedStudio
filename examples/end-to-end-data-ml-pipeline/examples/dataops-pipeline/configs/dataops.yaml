@@ -1,15 +1,16 @@
 # =============================================================================
-# DataOps Pipeline - Environment Configuration
+# DataOps Pipeline - Environment Configuration (reference)
 # =============================================================================
-# Used by: python3 scripts/load_env.py dataops
-# Exports environment variables needed by the manifest (per stage).
+# Reference values per stage, mirroring the GitHub repo/environment variables
+# the deploy workflows use. Use these as the source when exporting variables
+# for local runs.
 #
 # Variable mapping (YAML key → env var):
 #   dev.domain_name → DEV_DOMAIN_NAME
-#   dev.region      → DEV_REGION
+#   dev.region      → DEV_DOMAIN_REGION
 #   dev.project_name → DEV_PROJECT_NAME
-#   dev.deployment_role → DEV_PROJECT_ROLE (exported as PROJECT_ROLE)
-#   dev.account_id  → DEV_ACCOUNT_ID (exported as AWS_ACCOUNT_ID)
+#   dev.deployment_role → PROJECT_ROLE
+#   dev.account_id  → AWS_ACCOUNT_ID
 # =============================================================================
 
 dev:
@@ -20,15 +21,15 @@ dev:
   account_id: "688930149168"
 
 # test:
-#   domain_name: Default_05052026_Domain
+#   domain_name: Default_02202026_Domain
 #   region: us-east-1
-#   project_name: bank-mktg-test
-#   deployment_role: AmazonSageMakerUserIAMExecutionRole_7e140a21
-#   account_id: "973414239152"
+#   project_name: ml-test
+#   deployment_role: Admin-SMUSCLI
+#   account_id: "688930149168"
 
 # prod:
-#   domain_name: Default_05052026_Domain
+#   domain_name: Default_02202026_Domain
 #   region: us-east-1
-#   project_name: bank-mktg-prod
-#   deployment_role: AmazonSageMakerUserIAMExecutionRole_9d936e0e
-#   account_id: "973414239152"
+#   project_name: ml-prod
+#   deployment_role: Admin-SMUSCLI
+#   account_id: "688930149168"

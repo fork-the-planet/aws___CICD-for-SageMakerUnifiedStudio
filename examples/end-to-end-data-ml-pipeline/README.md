@@ -31,7 +31,7 @@ pip install aws-smus-cicd-cli
 
 export AWS_ACCOUNT_ID=<your-account-id>
 export DEV_DOMAIN_NAME=<your-domain-name>
-export DEV_REGION=<your-region>
+export DEV_DOMAIN_REGION=<your-region>
 export DEV_PROJECT_NAME=<your-project-name>
 export PROJECT_ROLE=<your-login-role-name>
 ```
@@ -215,7 +215,6 @@ The MLOps pipeline depends on DataOps — run DataOps first to create the `campa
 | ---- | ------- |
 | [`scripts/setup-mlops-infra.sh`](scripts/setup-mlops-infra.sh) | Event-driven deploy trigger (Lambda + EventBridge rule + IAM role) |
 | [`scripts/setup-github-oidc.sh`](scripts/setup-github-oidc.sh) | GitHub OIDC provider + IAM role for CI/CD |
-| [`scripts/load_env.py`](scripts/load_env.py) | Load environment config from YAML as exports |
 
 ### Setting up the event-driven deploy trigger
 
@@ -241,7 +240,7 @@ export GITHUB_REPO=<owner>/<repo>
 
 ```bash
 cd examples/end-to-end-data-ml-pipeline
-./scripts/setup-mlops-infra.sh dev "$AWS_ACCOUNT_ID" "$DEV_REGION" "$DEV_PROJECT_NAME"
+./scripts/setup-mlops-infra.sh dev "$AWS_ACCOUNT_ID" "$DEV_DOMAIN_REGION" "$DEV_PROJECT_NAME"
 ```
 
 The script is idempotent — re-running it updates the existing Lambda code and configuration. **Re-run it after any change to the trigger logic** (it calls `update-function-code`), since the deployed Lambda does not update automatically. In CI this happens on every MLOps training run.
@@ -302,7 +301,6 @@ CI/CD uses OIDC authentication with two-hop role assumption (no long-lived crede
     ├── setup-github-oidc.sh           # GitHub OIDC provider + IAM role
     ├── build-mlops-sourcedir.sh       # Build training sourcedir.tar.gz
     ├── mlops_helper.py                # Deploy status / smoke-test helpers
-    ├── load_env.py                    # Load environment config from YAML
     └── test-deploy-trigger-event.json # Sample EventBridge event for testing
 ```
 

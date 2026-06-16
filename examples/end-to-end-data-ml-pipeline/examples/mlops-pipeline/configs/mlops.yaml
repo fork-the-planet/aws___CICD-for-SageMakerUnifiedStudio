@@ -1,8 +1,10 @@
 # =============================================================================
-# MLOps Pipeline - Environment Configuration
+# MLOps Pipeline - Environment Configuration (reference)
 # =============================================================================
-# Used by: python3 scripts/load_env.py mlops
-# Exports environment variables needed by the manifest (per stage).
+# Reference values per stage, mirroring the GitHub repo/environment variables
+# the deploy workflows use (DEV_DOMAIN_NAME, *_PROJECT_NAME, AWS_ACCOUNT_ID,
+# MLflow server name/ARN, etc.). Use these as the source when exporting
+# variables for local runs.
 #
 # Keep these in sync with the GitHub repo/environment variables the deploy
 # workflows use (DEV_DOMAIN_NAME, *_PROJECT_NAME, AWS_ACCOUNT_ID, etc.).

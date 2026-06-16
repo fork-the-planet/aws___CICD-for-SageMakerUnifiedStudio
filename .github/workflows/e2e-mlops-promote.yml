@@ -100,7 +100,6 @@ env:
   WORKFLOW_NAME: deploy_pipeline
   MANIFEST_DIR: examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline
   MODEL_PACKAGE_GROUP: bank-mktg-prediction-models
-  LOAD_ENV: examples/end-to-end-data-ml-pipeline/scripts/load_env.py
   MLOPS_HELPER: examples/end-to-end-data-ml-pipeline/scripts/mlops_helper.py
 
 jobs:
@@ -122,6 +121,19 @@ jobs:
       staged_url_prod: ${{ steps.stage-prod.outputs.staged_url }}
       start_at: ${{ steps.params.outputs.start_at }}
       run_smoke_test: ${{ steps.params.outputs.run_smoke_test }}
+    env:
+      DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
+      TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
+      PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -168,9 +180,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install boto3 pyyaml -q
-
-      - name: Load environment config
-        run: python3 ${{ env.LOAD_ENV }} mlops
 
       - name: Assume project role
         # Switch to dataops-admin before any SageMaker / S3 / DataZone
@@ -253,6 +262,18 @@ jobs:
     env:
       STAGE: dev
       ENDPOINT_NAME: bank-mktg-prediction-dev
+      DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
+      TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
+      PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -270,9 +291,6 @@ jobs:
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
-
-      - name: Load environment config
-        run: python3 ${{ env.LOAD_ENV }} mlops
 
       - name: Export workflow env for manifest substitution
         run: |
@@ -419,6 +437,18 @@ jobs:
     env:
       STAGE: test
       ENDPOINT_NAME: bank-mktg-prediction-test
+      DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
+      TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
+      PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -436,9 +466,6 @@ jobs:
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
-
-      - name: Load environment config
-        run: python3 ${{ env.LOAD_ENV }} mlops
 
       - name: Export workflow env for manifest substitution
         run: |
@@ -579,6 +606,18 @@ jobs:
     env:
       STAGE: prod
       ENDPOINT_NAME: bank-mktg-prediction-prod
+      DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
+      TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
+      PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -596,9 +635,6 @@ jobs:
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
-
-      - name: Load environment config
-        run: python3 ${{ env.LOAD_ENV }} mlops
 
       - name: Export workflow env for manifest substitution
         run: |
