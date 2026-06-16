@@ -66,6 +66,65 @@ aws-smus-cicd-cli run --manifest manifest.yaml --targets dev --workflow data_pip
 aws-smus-cicd-cli monitor --manifest manifest.yaml --targets dev --live
 ```
 
+## How the SMUS CLI Deploys
+
+```mermaid
+flowchart TD
+    subgraph LocalRepo[Repository]
+        manifest[manifest.yaml]:::input
+        workflows[workflows/*.yaml]:::input
+        src[src/*.py]:::input
+        data[data/*.csv]:::input
+    end
+
+    manifest --> CLI
+    workflows --> CLI
+    src --> CLI
+    data --> CLI
+
+    subgraph CLI[SMUS CLI]
+        direction LR
+        Describe[aws-smus-cicd-cli describe]:::process
+        DeployCLI[aws-smus-cicd-cli deploy]:::process
+        RunCLI[aws-smus-cicd-cli run]:::process
+        Monitor[aws-smus-cicd-cli monitor]:::process
+        Describe --> DeployCLI --> RunCLI --> Monitor
+    end
+
+    CLI --> S3
+    CLI --> Studio
+    CLI --> MWAA
+
+    subgraph AWSServices[AWS Services]
+        S3[Amazon S3<br/>Data, Artifacts,<br/>Models, Scripts]:::success
+        Studio[SageMaker Unified Studio<br/>Domain, Project]:::info
+        MWAA[MWAA Serverless<br/>Airflow DAGs,<br/>Scheduling]:::warning
+    end
+
+    S3 --> Execution
+    MWAA --> Execution
+
+    subgraph Execution[Workflow Execution]
+        MLOps[MLOps Pipelines]:::process
+        DataOps[DataOps Pipelines]:::alert
+    end
+
+    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef warning fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+
+    style LocalRepo fill:transparent,stroke:#01579b,stroke-width:2px
+    style CLI fill:transparent,stroke:#7b1fa2,stroke-width:2px
+    style AWSServices fill:transparent,stroke:#2e7d32,stroke-width:2px
+    style Execution fill:transparent,stroke:#7b1fa2,stroke-width:2px
+```
+
+The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication with two-hop role assumption (no long-lived credentials).
+
 ## Architecture
 
 The system consists of three pipelines that form a data lineage chain with event-driven deployment:
@@ -133,65 +192,6 @@ The coupling points:
 
 Stage-prefixed names (`bank_mktg_dev`, `bank-mktg-prediction-dev`) ensure complete namespace isolation across environments.
 
-### Deployment Flow
-
-```mermaid
-flowchart TD
-    subgraph LocalRepo[Repository]
-        manifest[manifest.yaml]:::input
-        workflows[workflows/*.yaml]:::input
-        src[src/*.py]:::input
-        data[data/*.csv]:::input
-    end
-
-    manifest --> CLI
-    workflows --> CLI
-    src --> CLI
-    data --> CLI
-
-    subgraph CLI[SMUS CLI]
-        direction LR
-        Describe[aws-smus-cicd-cli describe]:::process
-        DeployCLI[aws-smus-cicd-cli deploy]:::process
-        RunCLI[aws-smus-cicd-cli run]:::process
-        Monitor[aws-smus-cicd-cli monitor]:::process
-        Describe --> DeployCLI --> RunCLI --> Monitor
-    end
-
-    CLI --> S3
-    CLI --> Studio
-    CLI --> MWAA
-
-    subgraph AWSServices[AWS Services]
-        S3[Amazon S3<br/>Data, Artifacts,<br/>Models, Scripts]:::success
-        Studio[SageMaker Unified Studio<br/>Domain, Project]:::info
-        MWAA[MWAA Serverless<br/>Airflow DAGs,<br/>Scheduling]:::warning
-    end
-
-    S3 --> Execution
-    MWAA --> Execution
-
-    subgraph Execution[Workflow Execution]
-        MLOps[MLOps Pipelines]:::process
-        DataOps[DataOps Pipelines]:::alert
-    end
-
-    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    classDef warning fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px
-
-    style LocalRepo fill:transparent,stroke:#01579b,stroke-width:2px
-    style CLI fill:transparent,stroke:#7b1fa2,stroke-width:2px
-    style AWSServices fill:transparent,stroke:#2e7d32,stroke-width:2px
-    style Execution fill:transparent,stroke:#7b1fa2,stroke-width:2px
-```
-
-The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication with two-hop role assumption (no long-lived credentials).
-
 ### Deploy trigger behavior
 
 The EventBridge rule is intentionally permissive — it matches every `Model Package State Change` event where `ModelApprovalStatus=Approved`, and the Lambda decides whether to dispatch:
@@ -221,7 +221,9 @@ The MLOps pipeline depends on DataOps — run DataOps first to create the `campa
 
 `setup-mlops-infra.sh` provisions the approval → deploy trigger (Lambda + EventBridge rule + IAM role) that fires the promote pipeline whenever a model is approved in the registry.
 
-**1. Store a GitHub personal access token in Secrets Manager.** The Lambda reads this token to send a `repository_dispatch` event to GitHub Actions. The token needs `repo` scope (or `contents: write` for a fine-grained token on the target repo).
+> **In CI/CD this script runs automatically.** The MLOps training workflow ([`e2e-mlops-pipeline.yml`](../../.github/workflows/e2e-mlops-pipeline.yml)) passes `setup_infra: true` for the `dev` environment, and the reusable deploy workflow's "Provision MLOps infra" step runs `setup-mlops-infra.sh` before deploying. In CI, `GITHUB_REPO` defaults to the current repository, so only the Secrets Manager token (step 1) must exist beforehand. The manual steps below are for provisioning the trigger outside CI.
+
+**1. Store a GitHub personal access token in Secrets Manager** (required for both CI and manual setup). The Lambda reads this token to send a `repository_dispatch` event to GitHub Actions. The token needs `repo` scope (or `contents: write` for a fine-grained token on the target repo).
 
 ```bash
 aws secretsmanager create-secret \
@@ -242,7 +244,7 @@ cd examples/end-to-end-data-ml-pipeline
 ./scripts/setup-mlops-infra.sh dev "$AWS_ACCOUNT_ID" "$DEV_REGION" "$DEV_PROJECT_NAME"
 ```
 
-The script is idempotent — re-running it updates the existing Lambda code and configuration. **Re-run it after any change to the trigger logic** (it calls `update-function-code`), since the deployed Lambda does not update automatically.
+The script is idempotent — re-running it updates the existing Lambda code and configuration. **Re-run it after any change to the trigger logic** (it calls `update-function-code`), since the deployed Lambda does not update automatically. In CI this happens on every MLOps training run.
 
 Once provisioned, the rule is `ENABLED` immediately. Approving a model version in `bank-mktg-prediction-models` then triggers the dev → test → prod promote cascade through GitHub Actions. See [Deploy trigger behavior](#deploy-trigger-behavior) for how the trigger handles approvals and avoids re-deploy loops.
 
