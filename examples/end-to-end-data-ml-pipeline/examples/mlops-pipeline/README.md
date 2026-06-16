@@ -32,7 +32,7 @@ pip install aws-smus-cicd-cli
 
 export AWS_ACCOUNT_ID=<your-account-id>
 export DEV_DOMAIN_NAME=<your-domain-name>
-export DEV_REGION=<your-region>
+export DEV_DOMAIN_REGION=<your-region>
 export DEV_PROJECT_NAME=<your-project-name>
 export PROJECT_ROLE=<your-login-role-name>
 export DEV_MLFLOW_SERVER_NAME=bank-mktg-dev

@@ -200,9 +200,6 @@ jobs:
           DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
           TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
           PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-          DEV_REGION: ${{ vars.AWS_REGION }}
-          TEST_REGION: ${{ vars.AWS_REGION }}
-          PROD_REGION: ${{ vars.AWS_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
           STS_REGION: ${{ vars.AWS_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
@@ -276,9 +273,6 @@ jobs:
           DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
           TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
           PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-          DEV_REGION: ${{ vars.AWS_REGION }}
-          TEST_REGION: ${{ vars.AWS_REGION }}
-          PROD_REGION: ${{ vars.AWS_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
           STS_REGION: ${{ vars.AWS_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}

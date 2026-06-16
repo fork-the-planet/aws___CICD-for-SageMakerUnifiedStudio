@@ -22,7 +22,7 @@ pip install aws-smus-cicd-cli
 
 export AWS_ACCOUNT_ID=<your-account-id>
 export DEV_DOMAIN_NAME=<your-domain-name>       # e.g. Default_05052026_Domain
-export DEV_REGION=<your-region>                  # e.g. us-east-1
+export DEV_DOMAIN_REGION=<your-region>                  # e.g. us-east-1
 export DEV_PROJECT_NAME=<your-project-name>      # e.g. bank-mktg-dev
 export PROJECT_ROLE=<your-login-role-name>       # e.g. Admin-SMUSCLI
 ```
