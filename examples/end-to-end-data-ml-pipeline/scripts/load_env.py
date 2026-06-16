@@ -81,6 +81,23 @@ def parse_config(config: Path) -> list[tuple[str, str]]:
             upper_key = key.upper()
             if upper_key in alias_map:
                 exports.append((alias_map[upper_key], str(val)))
+
+        # The manifest references the non-prefixed MLFLOW_TRACKING_SERVER_NAME
+        # and MLFLOW_TRACKING_SERVER_ARN (sourced from per-environment GitHub
+        # variables in CI). For local runs, build them from the config so
+        # `describe`/`deploy` resolve without those variables. Values are the
+        # same across stages today; the first stage is representative.
+        server_name = values.get("mlflow_server_name")
+        if server_name:
+            exports.append(("MLFLOW_TRACKING_SERVER_NAME", str(server_name)))
+            region = values.get("region")
+            account_id = values.get("account_id")
+            if region and account_id:
+                arn = (
+                    f"arn:aws:sagemaker:{region}:{account_id}"
+                    f":mlflow-tracking-server/{server_name}"
+                )
+                exports.append(("MLFLOW_TRACKING_SERVER_ARN", arn))
         break  # Only use first stage for aliases
 
     return exports

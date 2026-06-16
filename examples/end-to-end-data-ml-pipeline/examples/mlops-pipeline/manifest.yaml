@@ -60,8 +60,8 @@ stages:
       ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-dev
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
       # Promotion overrides — set by the GitHub workflow. "none" sentinel
       # means "no override" so deploy_model.py falls back to "latest Approved"
       # / the package's own ModelDataUrl. GIT_COMMIT is informational and
@@ -77,8 +77,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
         - type: workflow.create
           workflowName: training_pipeline
         - type: workflow.create
@@ -107,8 +107,8 @@ stages:
       ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-test
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${TEST_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -120,8 +120,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "arn:aws:sagemaker:${TEST_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
         # Test only deploys promoted models; training happens in dev.
         - type: workflow.create
           workflowName: deploy_pipeline
@@ -149,8 +149,8 @@ stages:
       ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-prod
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${PROD_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -162,8 +162,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "arn:aws:sagemaker:${PROD_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
         # Prod only deploys promoted models; training happens in dev.
         - type: workflow.create
           workflowName: deploy_pipeline
