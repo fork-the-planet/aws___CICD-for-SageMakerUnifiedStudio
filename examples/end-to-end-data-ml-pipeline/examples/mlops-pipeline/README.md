@@ -78,8 +78,6 @@ mlops-pipeline/
 │   └── notebooks/
 │       ├── create_model.ipynb           # Finds latest training job, creates model
 │       └── validate_mlops.ipynb         # Post-pipeline validation
-└── data/
-    └── bank-mktg-sample.csv             # Sample dataset
 ```
 
 ## Resource Naming

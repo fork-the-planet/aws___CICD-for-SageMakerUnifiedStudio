@@ -35,10 +35,6 @@ content:
       include:
         - "src/notebooks/"
 
-    - name: data
-      include:
-        - "data/"
-
   workflows:
     - workflowName: training_pipeline
       connectionName: default.workflow_serverless
@@ -91,9 +87,6 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
-        - name: data
-          connectionName: default.s3_shared
-          targetDirectory: bank-mktg/mlops_pipeline/data
 
   test:
     stage: TEST
@@ -133,9 +126,6 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
-        - name: data
-          connectionName: default.s3_shared
-          targetDirectory: bank-mktg/mlops_pipeline/data
 
   prod:
     stage: PROD
@@ -175,6 +165,3 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
-        - name: data
-          connectionName: default.s3_shared
-          targetDirectory: bank-mktg/mlops_pipeline/data

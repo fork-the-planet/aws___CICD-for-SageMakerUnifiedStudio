@@ -274,7 +274,6 @@ CI/CD uses OIDC authentication with two-hop role assumption (no long-lived crede
 ├── examples/
 │   ├── dataops-pipeline/              # DataOps: Glue ETL + Athena
 │   │   ├── manifest.yaml
-│   │   ├── configs/dataops.yaml
 │   │   ├── data/bank-mktg-sample.csv
 │   │   ├── workflows/data_pipeline.yaml
 │   │   └── src/
@@ -282,8 +281,6 @@ CI/CD uses OIDC authentication with two-hop role assumption (no long-lived crede
 │   │       └── notebooks/validate_dataops.ipynb
 │   └── mlops-pipeline/                # MLOps: SageMaker + MLflow
 │       ├── manifest.yaml
-│       ├── configs/mlops.yaml
-│       ├── data/bank-mktg-sample.csv
 │       ├── workflows/
 │       │   ├── training_pipeline.yaml
 │       │   └── deploy_pipeline.yaml
