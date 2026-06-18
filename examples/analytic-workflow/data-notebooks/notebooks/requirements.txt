@@ -164,7 +164,7 @@ networkx==3.6.1
 nltk==3.9.4
 numpy==1.26.4
 omegaconf==2.3.0
-openai==1.109.1
+openai==2.41.0
 openapi-schema-validator==0.6.3
 openapi-spec-validator==0.7.2
 opentelemetry-api==1.38.0
