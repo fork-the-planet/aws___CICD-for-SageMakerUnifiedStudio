@@ -1,0 +1,43 @@
+name: E2E Deploy MLOps Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - test
+    paths:
+      - 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/**'
+      - 'src/**'
+      - '.github/workflows/smus-e2e-direct-deploy.yml'
+      - '.github/workflows/e2e-mlops-pipeline.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, test, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Deploy to the single environment chosen from the dispatch dropdown.
+  # Push events (no input) default to dev. The job runs inside the matching
+  # GitHub Environment so OIDC role + vars resolve per stage.
+  deploy:
+    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
+    with:
+      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
+      test_target: ${{ inputs.environment || 'dev' }}
+      setup_mlflow: true
+      # Rebuild the training sourcedir.tar.gz (train script + requirements.txt)
+      # before deploy so the uploaded bundle is always in sync.
+      prebuild_script: 'examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh'
+      # Infra (EventBridge + Lambda deploy trigger) only belongs in dev:
+      # model approval happens in dev's registry and all stages share one
+      # account, so the trigger is a single account-scoped resource.
+      setup_infra: ${{ (inputs.environment || 'dev') == 'dev' }}
+      skip_tests: true

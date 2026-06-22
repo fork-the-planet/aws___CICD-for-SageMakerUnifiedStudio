@@ -116,3 +116,27 @@ class TestSubstituteEnvVars:
         }
         result = substitute_env_vars(data)
         assert result == data
+
+    def test_substitute_nested_default_uses_inner_var(self):
+        """Nested default like ${VAR:prefix-${OTHER}} resolves without a dangling brace."""
+        with patch.dict(os.environ, {"REGION": "us-east-1"}, clear=True):
+            value = (
+                "arn:aws:sagemaker:${REGION}:123:mlflow-tracking-server/"
+                "${SERVER_NAME:smus-integration-mlflow-${REGION}}"
+            )
+            result = substitute_env_vars(value, resolve_aws_pseudo_vars=False)
+            assert result == (
+                "arn:aws:sagemaker:us-east-1:123:mlflow-tracking-server/"
+                "smus-integration-mlflow-us-east-1"
+            )
+
+    def test_substitute_nested_default_env_override(self):
+        """When the outer var is set, the nested default is ignored and no brace leaks."""
+        with patch.dict(
+            os.environ,
+            {"REGION": "us-east-1", "SERVER_NAME": "smus-integration-mlflow-us-east-1"},
+            clear=True,
+        ):
+            value = "${SERVER_NAME:smus-integration-mlflow-${REGION}}"
+            result = substitute_env_vars(value, resolve_aws_pseudo_vars=False)
+            assert result == "smus-integration-mlflow-us-east-1"

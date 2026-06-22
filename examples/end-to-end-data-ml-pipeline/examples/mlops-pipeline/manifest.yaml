@@ -1,0 +1,167 @@
+# =============================================================================
+# MLOps Pipeline - SageMaker Airflow Operators
+# =============================================================================
+# End-to-end ML pipeline using SageMaker Airflow operators:
+#   SageMakerTrainingOperator, SageMakerModelOperator,
+#   SageMakerTransformOperator, SageMakerEndpointOperator
+#
+# Project layout:
+#   src/           - Training script, feature engineering (Glue), notebooks
+#   workflows/     - Airflow DAG YAML definitions
+#   data/          - Sample data
+#
+# Lifecycle:
+#   aws-smus-cicd-cli describe --manifest manifest.yaml --connect
+#   aws-smus-cicd-cli bundle  --manifest manifest.yaml --output-dir ./dist
+#   aws-smus-cicd-cli deploy  --manifest manifest.yaml --targets dev
+# =============================================================================
+
+applicationName: demo
+
+content:
+  storage:
+    - name: src
+      include:
+        - "src/"
+      exclude:
+        - __pycache__/
+        - "*.pyc"
+
+    - name: workflows
+      include:
+        - "workflows/"
+
+    - name: notebooks
+      include:
+        - "src/notebooks/"
+
+  workflows:
+    - workflowName: training_pipeline
+      connectionName: default.workflow_serverless
+    - workflowName: deploy_pipeline
+      connectionName: default.workflow_serverless
+
+stages:
+  dev:
+    stage: DEV
+    domain:
+      name: "${DEV_DOMAIN_NAME}"
+      region: ${DEV_DOMAIN_REGION}
+    project:
+      name: ${DEV_PROJECT_NAME}
+      owners:
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-SMUS-CLI-Tests
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_dev
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
+      EXPERIMENT_NAME: bank-mktg-experiments
+      ENDPOINT_NAME: bank-mktg-prediction-dev
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      # Promotion overrides — set by the GitHub workflow. "none" sentinel
+      # means "no override" so deploy_model.py falls back to "latest Approved"
+      # / the package's own ModelDataUrl. GIT_COMMIT is informational and
+      # gets stamped on the deployment report for traceability.
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environmentConfigurationName: "OnDemand Workflows"
+        - type: datazone.create_connection
+          name: mlflow-tracking
+          connection_type: MLFLOW
+          properties:
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+        - type: workflow.create
+          workflowName: training_pipeline
+        - type: workflow.create
+          workflowName: deploy_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/workflows
+
+  test:
+    stage: TEST
+    domain:
+      name: "${TEST_DOMAIN_NAME}"
+      region: ${TEST_DOMAIN_REGION}
+    project:
+      name: ${TEST_PROJECT_NAME}
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_test
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
+      EXPERIMENT_NAME: bank-mktg-experiments
+      ENDPOINT_NAME: bank-mktg-prediction-test
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environmentConfigurationName: "OnDemand Workflows"
+        - type: datazone.create_connection
+          name: mlflow-tracking
+          connection_type: MLFLOW
+          properties:
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+        # Test only deploys promoted models; training happens in dev.
+        - type: workflow.create
+          workflowName: deploy_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/workflows
+
+  prod:
+    stage: PROD
+    domain:
+      name: "${PROD_DOMAIN_NAME}"
+      region: ${PROD_DOMAIN_REGION}
+    project:
+      name: ${PROD_PROJECT_NAME}
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_prod
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
+      EXPERIMENT_NAME: bank-mktg-experiments
+      ENDPOINT_NAME: bank-mktg-prediction-prod
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
+      MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
+      GIT_COMMIT: "${GIT_COMMIT:unset}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environmentConfigurationName: "OnDemand Workflows"
+        - type: datazone.create_connection
+          name: mlflow-tracking
+          connection_type: MLFLOW
+          properties:
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+        # Prod only deploys promoted models; training happens in dev.
+        - type: workflow.create
+          workflowName: deploy_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/workflows

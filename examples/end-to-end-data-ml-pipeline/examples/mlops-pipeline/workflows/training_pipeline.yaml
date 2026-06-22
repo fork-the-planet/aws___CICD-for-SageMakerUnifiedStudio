@@ -1,0 +1,166 @@
+# =============================================================================
+# Bank Mktg Training Pipeline - SageMaker Pipeline Pattern
+# =============================================================================
+# Flow: preprocess → train → evaluate → register
+# Dataset: UCI Bank Mktg (binary classification - term deposit subscription)
+#
+# Pattern: Data Pre-Processing → Train Model → Evaluate Model → Register Model
+# No endpoint deployment — focused on model development and registry.
+# =============================================================================
+
+training_pipeline:
+  dag_id: training_pipeline
+  schedule_interval: null
+  catchup: false
+  default_args:
+    retries: 0
+
+  tasks:
+    # ---- 1. Data Pre-Processing (Glue - validates + splits into train/val/test) ----
+    preprocess:
+      operator: airflow.providers.amazon.aws.operators.glue.GlueJobOperator
+      retries: 0
+      job_name: bank-mktg-preprocess
+      script_location: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/src/feature_engineering.py"
+      s3_bucket: "{proj.connection.default.s3_shared.bucket_name}"
+      iam_role_name: "{proj.iam_role_name}"
+      region_name: "{domain.region}"
+      update_config: true
+      script_args:
+        "--INPUT_PATH": "{proj.connection.default.s3_shared.s3Uri}bank-mktg/data_pipeline/output/transformed/"
+        "--OUTPUT_PATH": "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/data/bank_mktg/features/"
+        "--CATALOG_DB": "bank_mktg_dev"
+        "--TABLE_PREFIX": "features"
+        "--TRAIN_RATIO": "0.70"
+        "--VAL_RATIO": "0.15"
+        "--TEST_RATIO": "0.15"
+        "--RANDOM_SEED": "42"
+      create_job_kwargs:
+        GlueVersion: "4.0"
+        NumberOfWorkers: 5
+        WorkerType: "G.1X"
+        Timeout: 600
+        MaxRetries: 0
+
+    # ---- 2. Train Model (SageMaker Training) ----
+    train_model:
+      operator: airflow.providers.amazon.aws.operators.sagemaker.SageMakerTrainingOperator
+      retries: 0
+      dependencies: [preprocess]
+      wait_for_completion: true
+      print_log: true
+      config:
+        TrainingJobName: 'bank-mktg-xgb-{{ ts_nodash }}'
+        AlgorithmSpecification:
+          TrainingImage: "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-xgboost:1.7-1"
+          TrainingInputMode: File
+        RoleArn: "{proj.iam_role_arn}"
+        InputDataConfig:
+          - ChannelName: train
+            DataSource:
+              S3DataSource:
+                S3DataType: S3Prefix
+                S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/data/bank_mktg/features/train/"
+                S3DataDistributionType: FullyReplicated
+            ContentType: text/csv
+          - ChannelName: validation
+            DataSource:
+              S3DataSource:
+                S3DataType: S3Prefix
+                S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/data/bank_mktg/features/validation/"
+                S3DataDistributionType: FullyReplicated
+            ContentType: text/csv
+        OutputDataConfig:
+          S3OutputPath: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/models/"
+        ResourceConfig:
+          InstanceType: ml.m5.large
+          InstanceCount: 1
+          VolumeSizeInGB: 30
+        StoppingCondition:
+          MaxRuntimeInSeconds: 3600
+        HyperParameters:
+          sagemaker_program: "train_xgboost.py"
+          sagemaker_submit_directory: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/src/sourcedir.tar.gz"
+          tracking_server_arn: "{proj.connection.mlflow-tracking.trackingServerArn}"
+          experiment_name: "bank-mktg-experiments"
+          objective: "binary:logistic"
+          eval_metric: "auc"
+          num_round: "200"
+          max_depth: "6"
+          eta: "0.1"
+          subsample: "0.8"
+          colsample_bytree: "0.8"
+          min_child_weight: "3"
+          scale_pos_weight: "3"
+
+    # ---- 3. Evaluate Model (Processing - creates model, runs batch predictions, computes metrics) ----
+    evaluate_model:
+      operator: airflow.providers.amazon.aws.operators.sagemaker.SageMakerProcessingOperator
+      retries: 0
+      dependencies: [train_model]
+      wait_for_completion: true
+      print_log: true
+      config:
+        ProcessingJobName: 'bank-mktg-eval-{{ ts_nodash }}'
+        ProcessingResources:
+          ClusterConfig:
+            InstanceCount: 1
+            InstanceType: ml.m5.large
+            VolumeSizeInGB: 10
+        AppSpecification:
+          ImageUri: "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-scikit-learn:1.2-1"
+          ContainerEntrypoint: ["python3", "/opt/ml/processing/src/evaluate_model.py"]
+          ContainerArguments:
+            - "--training-job-prefix"
+            - "bank-mktg-xgb"
+            - "--model-prefix"
+            - "bank-mktg-model"
+            - "--image-uri"
+            - "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-xgboost:1.7-1"
+            - "--execution-role-arn"
+            - "{proj.iam_role_arn}"
+            - "--region"
+            - "{domain.region}"
+            - "--test-data-path"
+            - "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/data/bank_mktg/features/test/"
+            - "--output-path"
+            - "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/models/evaluation/"
+            - "--tracking-server-arn"
+            - "{proj.connection.mlflow-tracking.trackingServerArn}"
+            - "--experiment-name"
+            - "bank-mktg-experiments"
+        ProcessingInputs:
+          - InputName: source
+            S3Input:
+              S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/src/"
+              LocalPath: /opt/ml/processing/src
+              S3DataType: S3Prefix
+              S3InputMode: File
+        ProcessingOutputConfig:
+          Outputs:
+            - OutputName: evaluation
+              S3Output:
+                S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/models/evaluation/"
+                LocalPath: /opt/ml/processing/output
+                S3UploadMode: EndOfJob
+        RoleArn: "{proj.iam_role_arn}"
+        StoppingCondition:
+          MaxRuntimeInSeconds: 1800
+
+    # ---- 4. Register Model (SageMaker Model Registry) ----
+    register_model:
+      operator: airflow.providers.amazon.aws.operators.sagemaker.SageMakerRegisterModelVersionOperator
+      retries: 0
+      dependencies: [evaluate_model]
+      image_uri: "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-xgboost:1.7-1"
+      # Pull the model artifact from the actual training job's output rather
+      # than reconstructing the path from {{ ts_nodash }}. SageMaker training
+      # job names must be globally unique, so on re-runs of the same logical
+      # date the operator appends a "-<timestamp>" suffix to avoid collisions —
+      # which makes a {{ ts_nodash }}-based path point at the wrong (or a
+      # failed) job. The train task's XCom carries the real S3ModelArtifacts
+      # location of the job that actually ran.
+      model_url: "{{ ti.xcom_pull(task_ids='train_model')['Training']['ModelArtifacts']['S3ModelArtifacts'] }}"
+      package_group_name: "bank-mktg-prediction-models"
+
+# end of workflow

@@ -1,0 +1,84 @@
+# =============================================================================
+# Bank Mktg Deploy Pipeline - Model Deployment after Approval
+# =============================================================================
+# Triggered manually after a model version is approved in the Model Registry.
+# Flow: check_approval → deploy_model
+#
+# This workflow:
+#   1. Checks that an approved model version exists in the registry
+#   2. Deploys the approved model to a SageMaker real-time endpoint
+#
+# Trigger: Manual (after model approval in SageMaker Model Registry)
+# =============================================================================
+
+deploy_pipeline:
+  dag_id: deploy_pipeline
+  schedule_interval: null
+  catchup: false
+  default_args:
+    retries: 0
+
+  tasks:
+    # ---- 1. Deploy Approved Model (SageMaker Processing) ----
+    deploy_model:
+      operator: airflow.providers.amazon.aws.operators.sagemaker.SageMakerProcessingOperator
+      retries: 0
+      wait_for_completion: true
+      print_log: true
+      config:
+        ProcessingJobName: 'bank-mktg-deploy-{{ ts_nodash }}'
+        ProcessingResources:
+          ClusterConfig:
+            InstanceCount: 1
+            InstanceType: ml.m5.large
+            VolumeSizeInGB: 10
+        AppSpecification:
+          ImageUri: "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-scikit-learn:1.2-1"
+          ContainerEntrypoint: ["python3", "/opt/ml/processing/src/deploy_model.py"]
+          ContainerArguments:
+            - "--model-package-group"
+            - "bank-mktg-prediction-models"
+            - "--endpoint-name"
+            - "{env.ENDPOINT_NAME}"
+            - "--image-uri"
+            - "683313688378.dkr.ecr.{domain.region}.amazonaws.com/sagemaker-xgboost:1.7-1"
+            - "--execution-role-arn"
+            - "{proj.iam_role_arn}"
+            - "--region"
+            - "{domain.region}"
+            - "--instance-type"
+            - "ml.m5.large"
+            - "--instance-count"
+            - "1"
+            - "--tracking-server-arn"
+            - "{proj.connection.mlflow-tracking.trackingServerArn}"
+            - "--experiment-name"
+            - "bank-mktg-experiments"
+            # Promotion overrides — passed by the GitHub workflow via env
+            # substitution. "none" sentinel means "no override" (i.e. fall
+            # back to latest-Approved / package's own ModelDataUrl).
+            - "--model-package-arn"
+            - "{env.MODEL_PACKAGE_ARN}"
+            - "--model-data-url-override"
+            - "{env.MODEL_DATA_URL_OVERRIDE}"
+            - "--git-commit"
+            - "{env.GIT_COMMIT}"
+        ProcessingInputs:
+          - InputName: source
+            S3Input:
+              S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/src/"
+              LocalPath: /opt/ml/processing/src
+              S3DataType: S3Prefix
+              S3InputMode: File
+        ProcessingOutputConfig:
+          Outputs:
+            - OutputName: deployment
+              S3Output:
+                S3Uri: "{proj.connection.default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/deployments/"
+                LocalPath: /opt/ml/processing/output
+                S3UploadMode: EndOfJob
+        RoleArn: "{proj.iam_role_arn}"
+        StoppingCondition:
+          MaxRuntimeInSeconds: 900
+
+# end of workflow
