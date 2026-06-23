@@ -80,7 +80,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-e2e-deploy-session
 
       - name: Get AWS Account ID
@@ -116,7 +116,7 @@ jobs:
         env:
           GITHUB_REPO: ${{ inputs.github_repo || github.repository }}
         run: |
-          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+          REGION="${{ vars.DOMAIN_REGION || 'us-east-1' }}"
           PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', inputs.test_target) }}"
           SECRET_ID="bank-mktg/github-token"
 
@@ -138,7 +138,7 @@ jobs:
         id: mlflow-setup
         if: ${{ inputs.setup_mlflow }}
         run: |
-          REGION="${{ vars.AWS_REGION }}"
+          REGION="${{ vars.DOMAIN_REGION }}"
           ACCOUNT_ID="${{ steps.aws-account.outputs.account-id }}"
           STACK_NAME="smus-shared-resources"
           TRACKING_SERVER_NAME="smus-integration-mlflow-${REGION}"
@@ -190,10 +190,10 @@ jobs:
 
       - name: aws-smus-cicd-cli deploy
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
           TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
           PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
@@ -201,7 +201,7 @@ jobs:
           TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
           PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
-          STS_REGION: ${{ vars.AWS_REGION }}
+          STS_REGION: ${{ vars.DOMAIN_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
           MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
           MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
@@ -236,7 +236,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-e2e-test-session
 
       - name: Get AWS Account ID
@@ -263,10 +263,10 @@ jobs:
 
       - name: aws-smus-cicd-cli test
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           DEV_DOMAIN_NAME: ${{ vars.DEV_DOMAIN_NAME }}
           TEST_DOMAIN_NAME: ${{ vars.TEST_DOMAIN_NAME }}
           PROD_DOMAIN_NAME: ${{ vars.PROD_DOMAIN_NAME }}
@@ -274,7 +274,7 @@ jobs:
           TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
           PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
-          STS_REGION: ${{ vars.AWS_REGION }}
+          STS_REGION: ${{ vars.DOMAIN_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
           MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
           MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}

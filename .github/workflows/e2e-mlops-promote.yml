@@ -128,9 +128,9 @@ jobs:
       DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
       TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
       PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
@@ -176,7 +176,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install dependencies
         run: pip install boto3 pyyaml -q
@@ -206,7 +206,7 @@ jobs:
         shell: bash
         env:
           PROVIDED_ARN: ${{ steps.params.outputs.model_package_arn_override }}
-          REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          REGION: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
         run: |
           if [ -n "$PROVIDED_ARN" ]; then
             echo "Using user-supplied ARN: $PROVIDED_ARN"
@@ -228,7 +228,7 @@ jobs:
             --model-package-arn "${{ steps.pick.outputs.arn }}" \
             --domain-name "$DEV_DOMAIN_NAME" \
             --target-project-name "$TEST_PROJECT_NAME" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
       - name: Stage artifact into PROD bucket
         id: stage-prod
@@ -239,7 +239,7 @@ jobs:
             --model-package-arn "${{ steps.pick.outputs.arn }}" \
             --domain-name "$DEV_DOMAIN_NAME" \
             --target-project-name "$PROD_PROJECT_NAME" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
       - name: Summary
         run: |
@@ -268,9 +268,9 @@ jobs:
       DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
       TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
       PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
@@ -287,7 +287,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
@@ -340,7 +340,7 @@ jobs:
         # the DAG's processing task failed. Check SageMaker directly.
         run: |
           python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --max-age-minutes 60
 
       - name: Smoke test endpoint
@@ -348,7 +348,7 @@ jobs:
         run: |
           python3 ${{ env.MLOPS_HELPER }} smoke-test \
             --endpoint-name "$ENDPOINT_NAME" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
       - name: Record deploy on model package metadata
         if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
@@ -374,7 +374,7 @@ jobs:
         continue-on-error: true
         run: |
           python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --output-dir "$RUNNER_TEMP/deploy-logs-dev"
 
       - name: Upload deploy logs artifact
@@ -443,9 +443,9 @@ jobs:
       DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
       TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
       PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
@@ -462,7 +462,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
@@ -516,7 +516,7 @@ jobs:
       - name: Verify deploy processing job succeeded
         run: |
           python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --max-age-minutes 60
 
       - name: Smoke test endpoint
@@ -524,7 +524,7 @@ jobs:
         run: |
           python3 ${{ env.MLOPS_HELPER }} smoke-test \
             --endpoint-name "$ENDPOINT_NAME" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
       - name: Record deploy on model package metadata
         if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
@@ -546,7 +546,7 @@ jobs:
         continue-on-error: true
         run: |
           python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --output-dir "$RUNNER_TEMP/deploy-logs-test"
 
       - name: Upload deploy logs artifact
@@ -612,9 +612,9 @@ jobs:
       DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
       TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
       PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
-      DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-      PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+      DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+      PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
@@ -631,7 +631,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
@@ -685,7 +685,7 @@ jobs:
       - name: Verify deploy processing job succeeded
         run: |
           python3 ${{ env.MLOPS_HELPER }} check-deploy-status \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --max-age-minutes 60
 
       - name: Smoke test endpoint
@@ -693,7 +693,7 @@ jobs:
         run: |
           python3 ${{ env.MLOPS_HELPER }} smoke-test \
             --endpoint-name "$ENDPOINT_NAME" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
       - name: Record deploy on model package metadata
         if: ${{ needs.prepare.outputs.run_smoke_test == 'true' }}
@@ -715,7 +715,7 @@ jobs:
         continue-on-error: true
         run: |
           python3 ${{ env.MLOPS_HELPER }} capture-deploy-logs \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --region "${{ vars.DOMAIN_REGION || 'us-east-1' }}" \
             --output-dir "$RUNNER_TEMP/deploy-logs-prod"
 
       - name: Upload deploy logs artifact

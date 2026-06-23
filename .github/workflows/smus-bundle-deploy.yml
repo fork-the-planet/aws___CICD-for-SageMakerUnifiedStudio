@@ -128,23 +128,23 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ steps.bundle-role.outputs.role-arn }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-bundle-session
       
       - name: Setup QuickSight dashboard (optional)
         if: ${{ inputs.quicksight_setup_script != '' }}
         env:
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "📊 Setting up QuickSight dashboard..."
           python ${{ inputs.quicksight_setup_script }}
       
       - name: aws-smus-cicd-cli describe (validate bundle source target)
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 Validating bundle source target: ${{ inputs.bundle_from_target }}"
           
@@ -152,10 +152,10 @@ jobs:
       
       - name: aws-smus-cicd-cli bundle from ${{ inputs.bundle_from_target }}
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 DOMAIN_REGION: $DOMAIN_REGION"
           echo "🔍 DEV_DOMAIN_REGION: $DEV_DOMAIN_REGION"
@@ -203,15 +203,15 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-validate-session
       
       - name: aws-smus-cicd-cli describe (validate test target)
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 DOMAIN_REGION: $DOMAIN_REGION"
           echo "🔍 TEST_DOMAIN_REGION: $TEST_DOMAIN_REGION"
@@ -250,7 +250,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-deploy-test-session
       
       - name: Get AWS Account ID
@@ -264,7 +264,7 @@ jobs:
         id: mlflow-setup-test
         if: ${{ inputs.setup_mlflow }}
         run: |
-          REGION="${{ vars.AWS_REGION }}"
+          REGION="${{ vars.DOMAIN_REGION }}"
           ACCOUNT_ID="${{ steps.aws-account-test.outputs.account-id }}"
           STACK_NAME="smus-shared-resources"
           TRACKING_SERVER_NAME="smus-integration-mlflow-${REGION}"
@@ -309,10 +309,10 @@ jobs:
       
       - name: aws-smus-cicd-cli describe (validate test target)
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 Validating test target: ${{ inputs.test_target }}"
           
@@ -320,11 +320,11 @@ jobs:
       
       - name: aws-smus-cicd-cli deploy --dry-run (pre-deploy validation)
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          STS_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          STS_REGION: ${{ vars.DOMAIN_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
         run: |
@@ -339,12 +339,12 @@ jobs:
 
       - name: aws-smus-cicd-cli deploy to test
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.AWS_REGION) || '' }}
-          STS_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.DOMAIN_REGION) || '' }}
+          STS_REGION: ${{ vars.DOMAIN_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account-test.outputs.account-id }}
         run: |
@@ -373,7 +373,7 @@ jobs:
           
           manifest_path = "${{ inputs.manifest_path }}"
           test_target = "${{ inputs.test_target }}"
-          region = "${{ vars.AWS_REGION }}"
+          region = "${{ vars.DOMAIN_REGION }}"
           
           try:
               with open(manifest_path, 'r') as f:
@@ -436,15 +436,15 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-test-session
       
       - name: aws-smus-cicd-cli test
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 DOMAIN_REGION: $DOMAIN_REGION"
           echo "🔍 TEST_DOMAIN_REGION: $TEST_DOMAIN_REGION"
@@ -485,7 +485,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-deploy-prod-session
       
       - name: Get AWS Account ID
@@ -499,7 +499,7 @@ jobs:
         id: mlflow-setup-prod
         if: ${{ inputs.setup_mlflow }}
         run: |
-          REGION="${{ vars.AWS_REGION }}"
+          REGION="${{ vars.DOMAIN_REGION }}"
           ACCOUNT_ID="${{ steps.aws-account-prod.outputs.account-id }}"
           STACK_NAME="smus-shared-resources"
           TRACKING_SERVER_NAME="smus-integration-mlflow-${REGION}"
@@ -544,10 +544,10 @@ jobs:
       
       - name: aws-smus-cicd-cli describe (validate prod target)
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           echo "🔍 Validating prod target: ${{ inputs.prod_target }}"
           
@@ -555,12 +555,12 @@ jobs:
       
       - name: aws-smus-cicd-cli deploy to production
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.AWS_REGION) || '' }}
-          STS_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          MLFLOW_TRACKING_SERVER_NAME: ${{ inputs.setup_mlflow && format('smus-integration-mlflow-{0}', vars.DOMAIN_REGION) || '' }}
+          STS_REGION: ${{ vars.DOMAIN_REGION }}
           STS_ACCOUNT_ID: ${{ steps.aws-account-prod.outputs.account-id }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account-prod.outputs.account-id }}
         run: |
@@ -598,7 +598,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-destroy-test-session
 
       - name: Get AWS Account ID
@@ -609,10 +609,10 @@ jobs:
 
       - name: Destroy test resources
         env:
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
         run: |
           aws-smus-cicd-cli destroy \
@@ -654,10 +654,10 @@ jobs:
 
       - name: Idempotency check (second destroy)
         env:
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
         run: |
           aws-smus-cicd-cli destroy \

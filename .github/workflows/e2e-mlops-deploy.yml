@@ -102,7 +102,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-e2e-mlops-deploy
 
       - name: Assume project role
@@ -131,7 +131,7 @@ jobs:
         if: ${{ inputs.setup_infra }}
         shell: bash
         run: |
-          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+          REGION="${{ vars.DOMAIN_REGION || 'us-east-1' }}"
           SECRET_ID="bank-mktg/github-token"
           if ! aws secretsmanager describe-secret --secret-id "$SECRET_ID" --region "$REGION" >/dev/null 2>&1; then
             echo "::error::Secret '$SECRET_ID' not found in region $REGION."
@@ -150,7 +150,7 @@ jobs:
           GITHUB_REPO: ${{ inputs.github_repo || github.repository }}
         run: |
           PROJECT_NAME="${{ vars.PROJECT_NAME || format('bank-mktg-{0}', matrix.stage) }}"
-          REGION="${{ vars.AWS_REGION || 'us-east-1' }}"
+          REGION="${{ vars.DOMAIN_REGION || 'us-east-1' }}"
 
           echo "::group::🚧 Provisioning MLOps infra for ${{ matrix.stage }}"
           bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
@@ -174,10 +174,10 @@ jobs:
 
       - name: Deploy approved model to ${{ matrix.stage }}
         env:
-          DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          DEV_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.AWS_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.AWS_REGION }}
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
         shell: bash
         run: |
           MANIFEST="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml"
