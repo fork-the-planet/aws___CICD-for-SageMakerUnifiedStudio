@@ -151,10 +151,13 @@ class ContextResolver:
             content: String content with {env.VAR}, {proj.property}, or {stage.name} variables
 
         Returns:
-            Content with variables replaced
+            Content with variables replaced. Note: {env.VAR} references are converted
+            to Jinja template syntax ({{ params.VAR }}) for runtime resolution via
+            MWAA Serverless override parameters, rather than being resolved to actual
+            values. This prevents secrets from being stored in S3.
 
         Raises:
-            ValueError: If any variable cannot be resolved
+            ValueError: If any non-env variable cannot be resolved
         """
         context = self._build_context()
 
@@ -165,6 +168,11 @@ class ContextResolver:
         def replacer(match):
             namespace = match.group(1)
             path = match.group(2)
+
+            # Convert {env.VAR} to Jinja template syntax for runtime resolution
+            # instead of resolving to actual values (prevents secret exposure in S3)
+            if namespace == "env":
+                return "{{ params." + path + " }}"
 
             try:
                 value = context[namespace]
