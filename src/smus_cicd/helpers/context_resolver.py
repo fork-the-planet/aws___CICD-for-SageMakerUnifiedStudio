@@ -157,7 +157,7 @@ class ContextResolver:
             values. This prevents secrets from being stored in S3.
 
         Raises:
-            ValueError: If any non-env variable cannot be resolved
+            ValueError: If any variable cannot be resolved
         """
         context = self._build_context()
 
@@ -172,6 +172,9 @@ class ContextResolver:
             # Convert {env.VAR} to Jinja template syntax for runtime resolution
             # instead of resolving to actual values (prevents secret exposure in S3)
             if namespace == "env":
+                if path not in self.env_vars:
+                    unresolved.append(f"{{{namespace}.{path}}}")
+                    return match.group(0)
                 return "{{ params." + path + " }}"
 
             try:

@@ -117,7 +117,7 @@ def test_resolve_mlflow_connection(mock_get_project_id, mock_get_role, mock_get_
 @patch('smus_cicd.helpers.datazone.get_project_user_role_arn')
 @patch('smus_cicd.helpers.datazone.get_project_id_by_name')
 def test_resolve_missing_variable(mock_get_project_id, mock_get_role, mock_get_connections):
-    """Test that missing env variables are converted to Jinja params (not raised as errors)."""
+    """Test that missing env variables raise an error at deploy time."""
     mock_get_project_id.return_value = "proj123"
     mock_get_role.return_value = "arn:aws:iam::123:role/TestRole"
     mock_get_connections.return_value = {}
@@ -132,9 +132,9 @@ def test_resolve_missing_variable(mock_get_project_id, mock_get_role, mock_get_c
     
     content = "Missing: {env.DOES_NOT_EXIST}"
     
-    # env vars are now converted to Jinja syntax regardless of whether they exist
-    result = resolver.resolve(content)
-    assert result == "Missing: {{ params.DOES_NOT_EXIST }}"
+    # Should raise ValueError for missing environment variable
+    with pytest.raises(ValueError, match="Failed to resolve variables"):
+        resolver.resolve(content)
 
 
 @patch('smus_cicd.helpers.connections.get_project_connections')
